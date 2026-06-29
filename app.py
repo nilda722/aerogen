@@ -169,7 +169,7 @@ def probe_status(force=False):
                 i2c = busio.I2C(board.SCL, board.SDA)
                 ads = ADS.ADS1115(i2c)
                 ads.gain = 1
-                AnalogIn(ads, ADS.P0).voltage
+                AnalogIn(ads, 0).voltage
                 adc_ok = True
                 sensors.append(_sensor("ADS1115 ADC", "adc", "ok", "I2C ADC detected"))
             except Exception as exc:
@@ -280,10 +280,10 @@ def read_hardware():
     ads = ADS.ADS1115(i2c)
     ads.gain = 1
 
-    ch0 = AnalogIn(ads, ADS.P0)
-    ch1 = AnalogIn(ads, ADS.P1)
-    ch2 = AnalogIn(ads, ADS.P2)
-    ch3 = AnalogIn(ads, ADS.P3)
+    ch0 = AnalogIn(ads, 0)
+    ch1 = AnalogIn(ads, 1)
+    ch2 = AnalogIn(ads, 2)
+    ch3 = AnalogIn(ads, 3)
 
     sensitivity = float(_settings["acs_sensitivity_mv"]) / 1000.0
     vref = float(_settings["acs_vref"])

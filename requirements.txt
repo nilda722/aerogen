@@ -1,0 +1,9 @@
+Flask>=3.0
+
+# Install if you want Supabase logging:
+# supabase>=2.0
+
+# Install these on the Pi:
+# adafruit-circuitpython-ads1x15
+# adafruit-blinka
+# minimalmodbus

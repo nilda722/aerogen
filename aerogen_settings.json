@@ -1,0 +1,15 @@
+{
+  "wind_max_mps": 30,
+  "sampling_interval": 10,
+  "battery_capacity_ah": 100,
+  "battery_full_v": 14.4,
+  "battery_empty_v": 11,
+  "logging_enabled": true,
+  "acs_sensitivity_mv": 66,
+  "acs_vref": 2.5,
+  "modbus_address": 1,
+  "rs485_port": "/dev/ttyUSB0",
+  "turbine_voltage_ratio": 6,
+  "solar_voltage_ratio": 6,
+  "battery_voltage_ratio": 6
+}

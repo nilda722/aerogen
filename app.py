@@ -12,6 +12,8 @@ from flask import Flask, jsonify, render_template, request
 
 app = Flask(__name__)
 
+# ── MAX485 DE/RE GPIO pin (BCM numbering) ────────────────────────────────────
+DE_RE_PIN = 17  # Change this if you used a different GPIO pin
 
 def _env_mode():
     return os.environ.get("AEROGEN_MODE", "auto").strip().lower()
@@ -31,6 +33,33 @@ except Exception as exc:
     HARDWARE_IMPORT_ERROR = str(exc)
 
 
+# ── GPIO setup for MAX485 DE/RE ───────────────────────────────────────────────
+GPIO = None
+GPIO_AVAILABLE = False
+
+try:
+    import RPi.GPIO as _GPIO
+    GPIO = _GPIO
+    GPIO_AVAILABLE = True
+except Exception:
+    GPIO_AVAILABLE = False
+
+
+def init_gpio():
+    """Set up DE/RE pin for MAX485 direction control."""
+    if not GPIO_AVAILABLE:
+        app.logger.warning("RPi.GPIO not available — MAX485 DE/RE control disabled")
+        return
+    try:
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(DE_RE_PIN, GPIO.OUT)
+        GPIO.output(DE_RE_PIN, GPIO.LOW)  # default: receive mode
+        app.logger.info("GPIO %d configured for MAX485 DE/RE", DE_RE_PIN)
+    except Exception as exc:
+        app.logger.warning("GPIO init failed: %s", exc)
+
+
+# ── Supabase ──────────────────────────────────────────────────────────────────
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 SUPABASE_AVAILABLE = bool(SUPABASE_URL and SUPABASE_KEY)
@@ -38,7 +67,6 @@ SUPABASE_AVAILABLE = bool(SUPABASE_URL and SUPABASE_KEY)
 try:
     if SUPABASE_AVAILABLE:
         from supabase import create_client
-
         _sb = create_client(SUPABASE_URL, SUPABASE_KEY)
     else:
         _sb = None
@@ -58,12 +86,14 @@ _settings = {
     "acs_sensitivity_mv": 66.0,
     "acs_vref": 2.50,
     "modbus_address": 1,
-    "rs485_port": "/dev/ttyUSB0",
+    "rs485_port": "/dev/ttyAMA0",   # Changed from /dev/ttyUSB0 → UART on Pi GPIO
     "turbine_voltage_ratio": 6.0,
     "solar_voltage_ratio": 6.0,
     "battery_voltage_ratio": 6.0,
 }
-SETTINGS_FILE = os.environ.get("AEROGEN_SETTINGS_FILE", os.path.join(os.getcwd(), "aerogen_settings.json"))
+SETTINGS_FILE = os.environ.get(
+    "AEROGEN_SETTINGS_FILE", os.path.join(os.getcwd(), "aerogen_settings.json")
+)
 
 _last_probe = {"time": 0.0, "status": None}
 _last_read = {"time": 0.0, "data": None}
@@ -130,8 +160,11 @@ def probe_status(force=False):
         ]
     else:
         if not HARDWARE_IMPORTS_OK:
-            sensors.append(_sensor("Raspberry Pi hardware libraries", "hardware_imports", "missing", HARDWARE_IMPORT_ERROR))
+            sensors.append(
+                _sensor("Raspberry Pi hardware libraries", "hardware_imports", "missing", HARDWARE_IMPORT_ERROR)
+            )
         else:
+            # ADS1115 check
             try:
                 i2c = busio.I2C(board.SCL, board.SDA)
                 ads = ADS.ADS1115(i2c)
@@ -142,17 +175,51 @@ def probe_status(force=False):
             except Exception as exc:
                 sensors.append(_sensor("ADS1115 ADC", "adc", "missing", str(exc)))
 
+            # MAX485 + RS485 anemometer check
+            gpio_detail = (
+                f"MAX485 DE/RE on GPIO{DE_RE_PIN} (RPi.GPIO available)"
+                if GPIO_AVAILABLE
+                else f"MAX485 DE/RE on GPIO{DE_RE_PIN} (RPi.GPIO NOT available)"
+            )
             try:
                 import minimalmodbus
-
-                instr = minimalmodbus.Instrument(_settings["rs485_port"], int(_settings["modbus_address"]))
+                instr = minimalmodbus.Instrument(
+                    _settings["rs485_port"], int(_settings["modbus_address"])
+                )
                 instr.serial.baudrate = 9600
                 instr.serial.timeout = 0.5
+
+                if GPIO_AVAILABLE:
+                    GPIO.output(DE_RE_PIN, GPIO.HIGH)
+
                 instr.read_register(0, 1)
                 rs485_ok = True
-                sensors.append(_sensor("RS485 anemometer", "wind_speed", "ok", f"{_settings['rs485_port']} address {_settings['modbus_address']}"))
+
+                if GPIO_AVAILABLE:
+                    GPIO.output(DE_RE_PIN, GPIO.LOW)
+
+                sensors.append(
+                    _sensor(
+                        "RS485 anemometer (MAX485)",
+                        "wind_speed",
+                        "ok",
+                        f"{_settings['rs485_port']} addr {_settings['modbus_address']} — {gpio_detail}",
+                    )
+                )
             except Exception as exc:
-                sensors.append(_sensor("RS485 anemometer", "wind_speed", "missing", str(exc)))
+                if GPIO_AVAILABLE:
+                    try:
+                        GPIO.output(DE_RE_PIN, GPIO.LOW)
+                    except Exception:
+                        pass
+                sensors.append(
+                    _sensor(
+                        "RS485 anemometer (MAX485)",
+                        "wind_speed",
+                        "missing",
+                        f"{exc} — {gpio_detail}",
+                    )
+                )
 
             adc_detail = "ADS1115 channel available" if adc_ok else "Waiting for ADS1115"
             state = "ok" if adc_ok else "missing"
@@ -162,15 +229,32 @@ def probe_status(force=False):
                     _sensor("Solar ACS712 30A", "solar_current", state, "ADS1115 A1 - " + adc_detail),
                     _sensor("Turbine voltage divider", "turbine_voltage", state, "ADS1115 A2 - " + adc_detail),
                     _sensor("Battery voltage monitor", "battery_voltage", state, "ADS1115 A3 - " + adc_detail),
-                    _sensor("Solar voltage divider", "solar_voltage", "missing", "Needs a dedicated ADC channel or second ADS1115"),
+                    _sensor(
+                        "Solar voltage divider",
+                        "solar_voltage",
+                        "missing",
+                        "Needs a dedicated ADC channel or second ADS1115",
+                    ),
                 ]
             )
+
+        # Report GPIO/MAX485 status as its own sensor entry
+        sensors.append(
+            _sensor(
+                "MAX485 DE/RE control",
+                "rs485_direction",
+                "ok" if GPIO_AVAILABLE else "missing",
+                f"GPIO{DE_RE_PIN} — RPi.GPIO {'available' if GPIO_AVAILABLE else 'not available'}",
+                required=False,
+            )
+        )
 
     status = {
         "app": "AeroGen",
         "mode": mode,
         "requested_mode": _env_mode(),
         "hardware_imports_ok": HARDWARE_IMPORTS_OK,
+        "gpio_available": GPIO_AVAILABLE,
         "sensors": sensors,
         "system": system_stats(),
         "supabase": supabase_status(),
@@ -215,12 +299,31 @@ def read_hardware():
 
 
 def read_anemometer_rs485():
+    """
+    Read wind speed from GD-FS-RS485 anemometer via MAX485 module.
+    Toggles GPIO DE/RE pin HIGH (TX) before sending Modbus request,
+    then LOW (RX) after to receive the response.
+    """
     import minimalmodbus
 
-    instr = minimalmodbus.Instrument(_settings["rs485_port"], int(_settings["modbus_address"]))
+    instr = minimalmodbus.Instrument(
+        _settings["rs485_port"], int(_settings["modbus_address"])
+    )
     instr.serial.baudrate = 9600
     instr.serial.timeout = 0.5
-    return float(instr.read_register(0, 1))
+
+    try:
+        if GPIO_AVAILABLE:
+            GPIO.output(DE_RE_PIN, GPIO.HIGH)   # enable transmit
+            time.sleep(0.001)                   # brief settle time
+
+        value = instr.read_register(0, 1)       # register 0, 1 decimal place
+
+        return float(value)
+
+    finally:
+        if GPIO_AVAILABLE:
+            GPIO.output(DE_RE_PIN, GPIO.LOW)    # back to receive mode
 
 
 def simulate_reading():
@@ -440,9 +543,14 @@ def get_reading(force=False):
     return _last_read["data"]
 
 
+# ── Startup ───────────────────────────────────────────────────────────────────
 load_saved_settings()
 
+if active_mode() == "hardware":
+    init_gpio()
 
+
+# ── Routes ────────────────────────────────────────────────────────────────────
 @app.route("/")
 def dashboard():
     return render_template("dashboard.html")

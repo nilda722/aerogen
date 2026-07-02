@@ -3,103 +3,39 @@
 
 {% block head %}
 <style>
-  /* Hero metric cards */
-  .hero-card {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.875rem;
-    padding: 1.25rem 1.5rem;
-    display: flex; flex-direction: column; gap: 0.25rem;
-  }
-  .hero-val {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 2rem; font-weight: 700; line-height: 1;
-    color: #0f172a;
-  }
-  .hero-unit { font-size: 0.85rem; font-weight: 500; color: #94a3b8; }
-  .hero-sub  { font-size: 0.78rem; color: #64748b; margin-top: 0.25rem; }
-
-  /* Stat pill rows */
-  .stat-row { display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid #f8fafc; }
-  .stat-row:last-child { border-bottom: none; padding-bottom: 0; }
-  .stat-key  { font-size: 0.8rem; color: #64748b; }
-  .stat-val  { font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; font-weight: 600; color: #0f172a; }
-
-  /* Gauge arc */
-  #wind-arc-fill { transition: stroke-dashoffset 0.8s ease, stroke 0.5s ease; }
-
-  /* Battery bar */
-  .batt-bar-track {
-    height: 14px; border-radius: 9999px; background: #f1f5f9;
-    overflow: hidden; border: 1px solid #e2e8f0;
-  }
-  .batt-bar-fill {
-    height: 100%; border-radius: 9999px;
-    transition: width 1s ease, background 0.5s ease;
-  }
-
-  /* Power bar (stacked) */
-  .power-bar { height: 10px; border-radius: 9999px; overflow: hidden; background: #f1f5f9; display: flex; }
-  .power-seg { height: 100%; transition: width 0.8s ease; }
-
-  /* Table */
-  .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-  .data-table th { padding: 0.6rem 1rem; text-align: left; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; border-bottom: 1px solid #f1f5f9; background: #f8fafc; }
-  .data-table td { padding: 0.7rem 1rem; border-bottom: 1px solid #f8fafc; color: #334155; }
-  .data-table tr:last-child td { border-bottom: none; }
-  .data-table tr:hover td { background: #f8fff8; }
-
-  /* Trend colours */
-  .trend-up   { color: #16a34a; }
-  .trend-down { color: #dc2626; }
-  .trend-flat { color: #94a3b8; }
+  .hero-val { font-family:'JetBrains Mono',monospace; font-size:2rem; font-weight:700; line-height:1; color:#0f172a; }
+  .hero-unit { font-size:0.85rem; font-weight:500; color:#94a3b8; }
+  .stat-row { display:flex; align-items:center; justify-content:space-between; padding:0.6rem 0; border-bottom:1px solid #f8fafc; }
+  .stat-row:last-child { border-bottom:none; padding-bottom:0; }
+  .stat-key { font-size:0.8rem; color:#64748b; }
+  .stat-val { font-family:'JetBrains Mono',monospace; font-size:0.875rem; font-weight:600; color:#0f172a; }
+  .batt-bar-track { height:14px; border-radius:9999px; background:#f1f5f9; overflow:hidden; border:1px solid #e2e8f0; }
+  .batt-bar-fill { height:100%; border-radius:9999px; transition:width 1s ease, background 0.5s ease; }
+  .power-bar { height:10px; border-radius:9999px; overflow:hidden; background:#f1f5f9; display:flex; }
+  .power-seg { height:100%; transition:width 0.8s ease; }
+  .data-table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+  .data-table th { padding:0.6rem 1rem; text-align:left; font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:#64748b; border-bottom:1px solid #f1f5f9; background:#f8fafc; }
+  .data-table td { padding:0.7rem 1rem; border-bottom:1px solid #f8fafc; color:#334155; }
+  .data-table tr:last-child td { border-bottom:none; }
+  .data-table tr:hover td { background:#f8fff8; }
 </style>
 {% endblock %}
 
 {% block content %}
-
-<!-- Page header -->
 <div style="margin-bottom:1.5rem; display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:0.5rem;">
   <div>
     <h1 style="font-size:1.5rem; font-weight:700; color:#0f172a; margin:0 0 0.25rem;">Energy Dashboard</h1>
-    <p style="font-size:0.875rem; color:#64748b; margin:0;">Wind turbine + solar panel · real-time monitoring</p>
+    <p style="font-size:0.875rem; color:#64748b; margin:0;">Wind turbine + solar panel real-time monitoring</p>
   </div>
-  <span id="last-updated" style="font-size:0.72rem; color:#94a3b8; font-family:'JetBrains Mono',monospace;">–</span>
+  <span id="last-updated" style="font-size:0.72rem; color:#94a3b8; font-family:'JetBrains Mono',monospace;">-</span>
 </div>
 
-<!-- ── Row 1: Wind hero + Solar hero + Battery hero ───────────────────── -->
-<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:1rem; margin-bottom:1rem;">
-
-  <!-- Wind speed gauge card -->
-  <div class="card" style="padding:1.5rem; display:flex; flex-direction:column; align-items:center; gap:0.75rem;">
-    <div class="section-label" style="align-self:flex-start;">Wind Speed</div>
-    <div style="position:relative; width:150px; height:150px;">
-      <svg viewBox="0 0 100 100" width="150" height="150" style="transform:rotate(-90deg)">
-        <circle cx="50" cy="50" r="42" fill="none" stroke="#f1f5f9" stroke-width="9" stroke-linecap="round" stroke-dasharray="220" stroke-dashoffset="0"/>
-        <circle id="wind-arc-fill" cx="50" cy="50" r="42" fill="none" stroke="#16a34a" stroke-width="9" stroke-linecap="round" stroke-dasharray="220" stroke-dashoffset="220"/>
-      </svg>
-      <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;">
-        <div id="wind-mps" class="hero-val" style="font-size:1.75rem;">–</div>
-        <div class="hero-unit">m/s</div>
-        <div id="wind-kmh" style="font-size:0.72rem; color:#94a3b8; margin-top:2px; font-family:'JetBrains Mono',monospace;">– km/h</div>
-      </div>
-    </div>
-    <div id="wind-label-pill" style="display:inline-flex; align-items:center; gap:0.4rem; padding:0.3rem 0.875rem; border-radius:9999px; font-size:0.8rem; font-weight:700; background:#dcfce7; color:#166534;">
-      ● Calm
-    </div>
-    <div style="width:100%; display:flex; flex-direction:column; gap:0.25rem; margin-top:0.25rem;">
-      <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:#94a3b8; font-family:'JetBrains Mono',monospace;">
-        <span>0</span><span id="wind-scale-mid">15</span><span id="wind-scale-high">30 m/s</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Solar card -->
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
   <div class="card" style="padding:1.5rem;">
     <div class="section-label" style="margin-bottom:0.875rem;">Solar Panel</div>
     <div style="display:flex; align-items:flex-end; gap:0.5rem; margin-bottom:1.25rem;">
       <div>
-        <div id="solar-power" class="hero-val" style="color:#d97706;">–</div>
+        <div id="solar-power" class="hero-val" style="color:#d97706;">-</div>
         <div class="hero-unit">Watts</div>
       </div>
       <div style="margin-bottom:0.35rem; width:38px; height:38px; border-radius:9px; background:#fef3c7; display:flex; align-items:center; justify-content:center;">
@@ -108,291 +44,159 @@
         </svg>
       </div>
     </div>
-    <div class="stat-row">
-      <span class="stat-key">Voltage</span>
-      <span id="solar-v" class="stat-val">– V</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-key">Current</span>
-      <span id="solar-i" class="stat-val">– A</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-key">Power</span>
-      <span id="solar-p2" class="stat-val" style="color:#d97706;">– W</span>
-    </div>
+    <div class="stat-row"><span class="stat-key">Voltage</span><span id="solar-v" class="stat-val">-</span></div>
+    <div class="stat-row"><span class="stat-key">Current</span><span id="solar-i" class="stat-val">-</span></div>
+    <div class="stat-row"><span class="stat-key">Power</span><span id="solar-p2" class="stat-val" style="color:#d97706;">-</span></div>
   </div>
 
-  <!-- Turbine card -->
   <div class="card" style="padding:1.5rem;">
     <div class="section-label" style="margin-bottom:0.875rem;">Wind Turbine</div>
     <div style="display:flex; align-items:flex-end; gap:0.5rem; margin-bottom:1.25rem;">
       <div>
-        <div id="turbine-power" class="hero-val" style="color:#15803d;">–</div>
+        <div id="turbine-power" class="hero-val" style="color:#15803d;">-</div>
         <div class="hero-unit">Watts</div>
       </div>
       <div style="margin-bottom:0.35rem; width:38px; height:38px; border-radius:9px; background:#dcfce7; display:flex; align-items:center; justify-content:center;">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="#15803d" aria-hidden="true">
-          <path d="M11.1 10.9 7.1 5.1 9.3 3l2.8 7.4c-.4 0-.7.2-1 .5Z"/>
-          <path d="M13.1 10.9 18.9 7l2.1 2.2-7.4 2.8c0-.4-.2-.8-.5-1.1Z"/>
-          <path d="M13.1 13.1 17 18.9 14.8 21 12 13.6c.4 0 .8-.2 1.1-.5Z"/>
-          <path d="M10.9 13.1 5.1 17 3 14.8l7.4-2.8c0 .4.2.8.5 1.1Z"/>
-          <circle cx="12" cy="12" r="1.15"/>
-          <path d="M10.5 21h3l-.7-7.2h-1.6L10.5 21Z"/>
-          <path d="M8.4 21h7.2v1H8.4z"/>
+          <path d="M11.1 10.9 7.1 5.1 9.3 3l2.8 7.4c-.4 0-.7.2-1 .5Z"/><path d="M13.1 10.9 18.9 7l2.1 2.2-7.4 2.8c0-.4-.2-.8-.5-1.1Z"/><path d="M13.1 13.1 17 18.9 14.8 21 12 13.6c.4 0 .8-.2 1.1-.5Z"/><path d="M10.9 13.1 5.1 17 3 14.8l7.4-2.8c0 .4.2.8.5 1.1Z"/><circle cx="12" cy="12" r="1.15"/><path d="M10.5 21h3l-.7-7.2h-1.6L10.5 21Z"/><path d="M8.4 21h7.2v1H8.4z"/>
         </svg>
       </div>
     </div>
-    <div class="stat-row">
-      <span class="stat-key">Voltage</span>
-      <span id="turbine-v" class="stat-val">– V</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-key">Current</span>
-      <span id="turbine-i" class="stat-val">– A</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-key">Power</span>
-      <span id="turbine-p2" class="stat-val" style="color:#15803d;">– W</span>
-    </div>
+    <div class="stat-row"><span class="stat-key">Voltage</span><span id="turbine-v" class="stat-val">-</span></div>
+    <div class="stat-row"><span class="stat-key">Current</span><span id="turbine-i" class="stat-val">-</span></div>
+    <div class="stat-row"><span class="stat-key">Power</span><span id="turbine-p2" class="stat-val" style="color:#15803d;">-</span></div>
   </div>
 </div>
 
-<!-- ── Row 2: Battery + Total Power + Charts ──────────────────────────── -->
 <div style="display:grid; grid-template-columns:1fr 2fr; gap:1rem; margin-bottom:1rem;">
-
-  <!-- Battery + Total power -->
   <div style="display:flex; flex-direction:column; gap:1rem;">
-
-    <!-- Battery SOC -->
     <div class="card" style="padding:1.375rem 1.5rem;">
       <div class="section-label" style="margin-bottom:0.875rem;">Battery</div>
       <div style="display:flex; align-items:flex-end; gap:0.75rem; margin-bottom:1rem;">
-        <div>
-          <div id="batt-soc" class="hero-val" style="font-size:2.25rem; color:#2563eb;">–</div>
-          <div class="hero-unit">State of charge</div>
-        </div>
-        <div id="batt-v" style="font-family:'JetBrains Mono',monospace; font-size:1rem; font-weight:600; color:#64748b; margin-bottom:0.4rem;">– V</div>
+        <div><div id="batt-soc" class="hero-val" style="font-size:2.25rem; color:#2563eb;">-</div><div class="hero-unit">State of charge</div></div>
+        <div id="batt-v" style="font-family:'JetBrains Mono',monospace; font-size:1rem; font-weight:600; color:#64748b; margin-bottom:0.4rem;">-</div>
       </div>
-      <div class="batt-bar-track">
-        <div id="batt-bar-fill" class="batt-bar-fill" style="width:0%; background:#2563eb;"></div>
-      </div>
-      <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:#94a3b8; margin-top:0.375rem; font-family:'JetBrains Mono',monospace;">
-        <span>Empty</span><span>50%</span><span>Full</span>
-      </div>
+      <div class="batt-bar-track"><div id="batt-bar-fill" class="batt-bar-fill" style="width:0%; background:#2563eb;"></div></div>
+      <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:#94a3b8; margin-top:0.375rem; font-family:'JetBrains Mono',monospace;"><span>Empty</span><span>50%</span><span>Full</span></div>
     </div>
 
-    <!-- Combined power -->
     <div class="card" style="padding:1.375rem 1.5rem;">
       <div class="section-label" style="margin-bottom:0.875rem;">Combined Output</div>
-      <div style="display:flex; align-items:flex-end; gap:0.5rem; margin-bottom:1rem;">
-        <div id="total-power" class="hero-val" style="font-size:2rem;">–</div>
-        <div class="hero-unit" style="margin-bottom:0.35rem;">W total</div>
-      </div>
-      <!-- Stacked power bar -->
-      <div class="power-bar" style="margin-bottom:0.5rem;">
-        <div id="seg-wind"  class="power-seg" style="background:#16a34a; width:50%;"></div>
-        <div id="seg-solar" class="power-seg" style="background:#f59e0b; width:50%;"></div>
-      </div>
+      <div style="display:flex; align-items:flex-end; gap:0.5rem; margin-bottom:1rem;"><div id="total-power" class="hero-val" style="font-size:2rem;">-</div><div class="hero-unit" style="margin-bottom:0.35rem;">W total</div></div>
+      <div class="power-bar" style="margin-bottom:0.5rem;"><div id="seg-wind" class="power-seg" style="background:#16a34a; width:0%;"></div><div id="seg-solar" class="power-seg" style="background:#f59e0b; width:0%;"></div></div>
       <div style="display:flex; gap:1rem; font-size:0.75rem;">
-        <span style="display:flex; align-items:center; gap:0.3rem;">
-          <span style="width:9px; height:9px; background:#16a34a; border-radius:50%; display:inline-block;"></span>
-          <span id="pct-wind" style="color:#166534; font-weight:600;">–%</span> Wind
-        </span>
-        <span style="display:flex; align-items:center; gap:0.3rem;">
-          <span style="width:9px; height:9px; background:#f59e0b; border-radius:50%; display:inline-block;"></span>
-          <span id="pct-solar" style="color:#92400e; font-weight:600;">–%</span> Solar
-        </span>
+        <span style="display:flex; align-items:center; gap:0.3rem;"><span style="width:9px; height:9px; background:#16a34a; border-radius:50%; display:inline-block;"></span><span id="pct-wind" style="color:#166534; font-weight:600;">-</span> Wind</span>
+        <span style="display:flex; align-items:center; gap:0.3rem;"><span style="width:9px; height:9px; background:#f59e0b; border-radius:50%; display:inline-block;"></span><span id="pct-solar" style="color:#92400e; font-weight:600;">-</span> Solar</span>
       </div>
     </div>
   </div>
 
-  <!-- Trend charts -->
   <div class="card" style="padding:1.5rem;">
-    <div class="section-label" style="margin-bottom:1rem;">Power Trend · Last 60 Readings</div>
-    <canvas id="power-chart" height="85"></canvas>
-    <div style="margin-top:1.25rem; border-top:1px solid #f1f5f9; padding-top:1.25rem;">
-      <div class="section-label" style="margin-bottom:0.75rem;">Wind Speed</div>
-      <canvas id="wind-chart" height="60"></canvas>
-    </div>
+    <div class="section-label" style="margin-bottom:1rem;">Power Trend - Last 60 Readings</div>
+    <canvas id="power-chart" height="115"></canvas>
   </div>
 </div>
 
-<!-- ── Row 3: Recent readings ─────────────────────────────────────────── -->
 <div class="card" style="overflow:hidden;">
   <div style="padding:1rem 1.5rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between;">
     <span class="section-label">Recent Readings</span>
-    <a href="/logs" style="font-size:0.8rem; color:#16a34a; font-weight:600; text-decoration:none;">View all →</a>
+    <a href="/logs" style="font-size:0.8rem; color:#16a34a; font-weight:600; text-decoration:none;">View all</a>
   </div>
   <div style="overflow-x:auto;">
     <table class="data-table">
-      <thead>
-        <tr>
-          <th>Timestamp</th>
-          <th style="text-align:right;">Wind (m/s)</th>
-          <th style="text-align:right;">Turbine (W)</th>
-          <th style="text-align:right;">Solar (W)</th>
-          <th style="text-align:right;">Total (W)</th>
-          <th style="text-align:right;">Battery</th>
-        </tr>
-      </thead>
-      <tbody id="recent-tbody">
-        <tr><td colspan="6" style="text-align:center; padding:2rem; color:#94a3b8;">Loading…</td></tr>
-      </tbody>
+      <thead><tr><th>Timestamp</th><th style="text-align:right;">Turbine (W)</th><th style="text-align:right;">Solar (W)</th><th style="text-align:right;">Total (W)</th><th style="text-align:right;">Battery</th></tr></thead>
+      <tbody id="recent-tbody"><tr><td colspan="5" style="text-align:center; padding:2rem; color:#94a3b8;">Loading...</td></tr></tbody>
     </table>
   </div>
 </div>
-
 {% endblock %}
 
 {% block scripts %}
 <script>
-// ── Charts ───────────────────────────────────────────────────────────────
 const powerChart = new Chart(document.getElementById('power-chart'), {
   type: 'line',
   data: { labels: [], datasets: [
     { label:'Wind', data:[], borderColor:'#16a34a', backgroundColor:'rgba(22,163,74,0.07)', borderWidth:2, tension:0.4, fill:true, pointRadius:0, pointHoverRadius:4 },
     { label:'Solar', data:[], borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,0.07)', borderWidth:2, tension:0.4, fill:true, pointRadius:0, pointHoverRadius:4 },
   ]},
-  options: {
-    responsive:true,
-    plugins:{ legend:{ display:true, position:'top', labels:{ boxWidth:10, font:{size:11}, color:'#64748b' } } },
-    scales:{
-      x:{ ticks:{ color:'#94a3b8', maxTicksLimit:8, font:{family:'JetBrains Mono',size:10} }, grid:{color:'#f8fafc'} },
-      y:{ ticks:{ color:'#94a3b8', font:{family:'JetBrains Mono',size:10} }, grid:{color:'#f8fafc'}, min:0 },
-    },
-    animation:{ duration:300 },
-  }
+  options: { responsive:true, plugins:{ legend:{ display:true, position:'top', labels:{ boxWidth:10, font:{size:11}, color:'#64748b' } } }, scales:{ x:{ ticks:{ color:'#94a3b8', maxTicksLimit:8, font:{family:'JetBrains Mono',size:10} }, grid:{color:'#f8fafc'} }, y:{ ticks:{ color:'#94a3b8', font:{family:'JetBrains Mono',size:10} }, grid:{color:'#f8fafc'}, min:0 } }, animation:{ duration:300 } }
 });
 
-const windChart = new Chart(document.getElementById('wind-chart'), {
-  type: 'line',
-  data: { labels:[], datasets:[{
-    label:'m/s', data:[],
-    borderColor:'#16a34a', backgroundColor:'rgba(22,163,74,0.05)',
-    borderWidth:1.5, tension:0.4, fill:true, pointRadius:0,
-  }]},
-  options:{
-    responsive:true,
-    plugins:{ legend:{display:false} },
-    scales:{
-      x:{ ticks:{ color:'#94a3b8', maxTicksLimit:6, font:{family:'JetBrains Mono',size:10} }, grid:{color:'#f8fafc'} },
-      y:{ ticks:{ color:'#94a3b8', font:{family:'JetBrains Mono',size:10} }, grid:{color:'#f8fafc'}, min:0 },
-    },
-    animation:{ duration:200 },
-  }
-});
-
-// ── State ────────────────────────────────────────────────────────────────
 const MAX = 60;
-const hist = { labels:[], wind:[], windPow:[], solarPow:[] };
-let dashboardSettings = { wind_max_mps: 30, sampling_interval: 2 };
+const hist = { labels:[], windPow:[], solarPow:[] };
+let dashboardSettings = { sampling_interval: 2 };
 let tickTimer = null;
 
-function gaugeOffset(val, max) {
-  return 220 * (1 - Math.min(val / max, 1));
-}
+function hasValue(value) { return value !== null && value !== undefined && !Number.isNaN(Number(value)); }
+function fmtNum(value, digits) { return hasValue(value) ? Number(value).toFixed(digits) : '-'; }
+function fmtUnit(value, digits, unit) { return hasValue(value) ? Number(value).toFixed(digits) + unit : '-'; }
+function setText(id, value) { document.getElementById(id).textContent = value; }
 
 async function tick() {
   const r = await fetch('/api/reading?fresh=1').then(r => r.json());
-
-  // History
   hist.labels.push(fmtTimeShort(r.timestamp));
-  hist.wind.push(r.wind_mps);
-  hist.windPow.push(r.turbine_power);
-  hist.solarPow.push(r.solar_power);
-  if (hist.labels.length > MAX) { hist.labels.shift(); hist.wind.shift(); hist.windPow.shift(); hist.solarPow.shift(); }
+  hist.windPow.push(hasValue(r.turbine_power) ? r.turbine_power : null);
+  hist.solarPow.push(hasValue(r.solar_power) ? r.solar_power : null);
+  if (hist.labels.length > MAX) { hist.labels.shift(); hist.windPow.shift(); hist.solarPow.shift(); }
 
-  // Wind gauge
-  document.getElementById('wind-mps').textContent = r.wind_mps.toFixed(1);
-  document.getElementById('wind-kmh').textContent  = r.wind_kmh.toFixed(1) + ' km/h';
-  const arc = document.getElementById('wind-arc-fill');
-  arc.style.strokeDashoffset = gaugeOffset(r.wind_mps, dashboardSettings.wind_max_mps || 30);
-  arc.style.stroke = wind_color(r.wind_mps);
+  setText('turbine-power', fmtNum(r.turbine_power, 1));
+  setText('turbine-v', fmtUnit(r.turbine_voltage, 2, ' V'));
+  setText('turbine-i', fmtUnit(r.turbine_current, 2, ' A'));
+  setText('turbine-p2', fmtUnit(r.turbine_power, 1, ' W'));
 
-  const pill = document.getElementById('wind-label-pill');
-  const wc = wind_color(r.wind_mps);
-  pill.textContent = '● ' + wind_label(r.wind_mps);
-  pill.style.background = wc + '20';
-  pill.style.color = wc;
+  setText('solar-power', fmtNum(r.solar_power, 1));
+  setText('solar-v', fmtUnit(r.solar_voltage, 2, ' V'));
+  setText('solar-i', fmtUnit(r.solar_current, 2, ' A'));
+  setText('solar-p2', fmtUnit(r.solar_power, 1, ' W'));
 
-  // Turbine
-  document.getElementById('turbine-power').textContent = r.turbine_power.toFixed(1);
-  document.getElementById('turbine-v').textContent     = r.turbine_voltage.toFixed(2) + ' V';
-  document.getElementById('turbine-i').textContent     = r.turbine_current.toFixed(2) + ' A';
-  document.getElementById('turbine-p2').textContent    = r.turbine_power.toFixed(1) + ' W';
-
-  // Solar
-  document.getElementById('solar-power').textContent = r.solar_power.toFixed(1);
-  document.getElementById('solar-v').textContent     = r.solar_voltage.toFixed(2) + ' V';
-  document.getElementById('solar-i').textContent     = r.solar_current.toFixed(2) + ' A';
-  document.getElementById('solar-p2').textContent    = r.solar_power.toFixed(1) + ' W';
-
-  // Battery
   const soc = r.battery_soc;
-  document.getElementById('batt-soc').textContent = soc.toFixed(0) + '%';
-  document.getElementById('batt-v').textContent   = r.battery_voltage.toFixed(2) + ' V';
+  setText('batt-soc', fmtUnit(soc, 0, '%'));
+  setText('batt-v', fmtUnit(r.battery_voltage, 2, ' V'));
   const bf = document.getElementById('batt-bar-fill');
-  bf.style.width = soc + '%';
-  bf.style.background = soc_color(soc);
-  document.getElementById('batt-soc').style.color = soc_color(soc);
+  bf.style.width = hasValue(soc) ? soc + '%' : '0%';
+  bf.style.background = hasValue(soc) ? soc_color(soc) : '#cbd5e1';
+  document.getElementById('batt-soc').style.color = hasValue(soc) ? soc_color(soc) : '#94a3b8';
 
-  // Total power + split bar
   const total = r.total_power;
-  document.getElementById('total-power').textContent = total.toFixed(1);
-  const windPct  = total > 0 ? (r.turbine_power / total * 100) : 50;
-  const solarPct = total > 0 ? (r.solar_power   / total * 100) : 50;
-  document.getElementById('seg-wind').style.width  = windPct.toFixed(0) + '%';
+  setText('total-power', fmtNum(total, 1));
+  const windPct = hasValue(total) && total > 0 && hasValue(r.turbine_power) ? (r.turbine_power / total * 100) : 0;
+  const solarPct = hasValue(total) && total > 0 && hasValue(r.solar_power) ? (r.solar_power / total * 100) : 0;
+  document.getElementById('seg-wind').style.width = windPct.toFixed(0) + '%';
   document.getElementById('seg-solar').style.width = solarPct.toFixed(0) + '%';
-  document.getElementById('pct-wind').textContent  = windPct.toFixed(0) + '%';
-  document.getElementById('pct-solar').textContent = solarPct.toFixed(0) + '%';
+  document.getElementById('pct-wind').textContent = windPct ? windPct.toFixed(0) + '%' : '-';
+  document.getElementById('pct-solar').textContent = solarPct ? solarPct.toFixed(0) + '%' : '-';
 
-  // Charts
   powerChart.data.labels = [...hist.labels];
   powerChart.data.datasets[0].data = [...hist.windPow];
   powerChart.data.datasets[1].data = [...hist.solarPow];
   powerChart.update('none');
-  windChart.data.labels = [...hist.labels];
-  windChart.data.datasets[0].data = [...hist.wind];
-  windChart.update('none');
-
   document.getElementById('last-updated').textContent = 'Updated ' + fmtTime(r.timestamp);
 
-  // Recent table
   const logs = await fetch('/api/logs?per_page=8').then(r => r.json());
   const tbody = document.getElementById('recent-tbody');
   if (logs.data && logs.data.length) {
-    tbody.innerHTML = logs.data.map(row => `
-      <tr>
-        <td style="font-family:'JetBrains Mono',monospace; font-size:0.78rem; color:#64748b;">${fmtTime(row.timestamp)}</td>
-        <td style="text-align:right; font-family:'JetBrains Mono',monospace; font-weight:600; color:${wind_color(row.wind_mps)};">${parseFloat(row.wind_mps).toFixed(1)}</td>
-        <td style="text-align:right; font-family:'JetBrains Mono',monospace; color:#15803d; font-weight:600;">${parseFloat(row.turbine_power).toFixed(1)}</td>
-        <td style="text-align:right; font-family:'JetBrains Mono',monospace; color:#d97706; font-weight:600;">${parseFloat(row.solar_power).toFixed(1)}</td>
-        <td style="text-align:right; font-family:'JetBrains Mono',monospace; font-weight:700;">${parseFloat(row.total_power).toFixed(1)}</td>
-        <td style="text-align:right;">
-          <span style="font-family:'JetBrains Mono',monospace; font-size:0.8rem; font-weight:600; color:${soc_color(row.battery_soc)};">${parseFloat(row.battery_soc).toFixed(0)}%</span>
-        </td>
-      </tr>`).join('');
+    tbody.innerHTML = logs.data.map(row => `<tr>
+      <td style="font-family:'JetBrains Mono',monospace; font-size:0.78rem; color:#64748b;">${fmtTime(row.timestamp)}</td>
+      <td style="text-align:right; font-family:'JetBrains Mono',monospace; color:#15803d; font-weight:600;">${fmtNum(row.turbine_power, 1)}</td>
+      <td style="text-align:right; font-family:'JetBrains Mono',monospace; color:#d97706; font-weight:600;">${fmtNum(row.solar_power, 1)}</td>
+      <td style="text-align:right; font-family:'JetBrains Mono',monospace; font-weight:700;">${fmtNum(row.total_power, 1)}</td>
+      <td style="text-align:right;"><span style="font-family:'JetBrains Mono',monospace; font-size:0.8rem; font-weight:600; color:${hasValue(row.battery_soc) ? soc_color(row.battery_soc) : '#94a3b8'};">${fmtUnit(row.battery_soc, 0, '%')}</span></td>
+    </tr>`).join('');
   } else {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:#94a3b8;">No readings yet.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:#94a3b8;">No readings yet.</td></tr>';
   }
   scheduleNextTick();
 }
 
 async function loadDashboardSettings() {
   const s = await fetch('/api/settings').then(r => r.json());
-  dashboardSettings.wind_max_mps = parseFloat(s.wind_max_mps || 30);
   dashboardSettings.sampling_interval = parseInt(s.sampling_interval || 2);
-  document.getElementById('wind-scale-mid').textContent = Math.round(dashboardSettings.wind_max_mps / 2);
-  document.getElementById('wind-scale-high').textContent = dashboardSettings.wind_max_mps + ' m/s';
 }
 
 function scheduleNextTick() {
   clearTimeout(tickTimer);
   const ms = Math.max(1, dashboardSettings.sampling_interval || 2) * 1000;
-  tickTimer = setTimeout(async () => {
-    await loadDashboardSettings();
-    tick();
-  }, ms);
+  tickTimer = setTimeout(async () => { await loadDashboardSettings(); tick(); }, ms);
 }
 
 loadDashboardSettings().then(tick);

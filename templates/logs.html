@@ -8,9 +8,6 @@
   .data-table td { padding:0.7rem 1rem; border-bottom:1px solid #f8fafc; color:#334155; }
   .data-table tr:last-child td { border-bottom:none; }
   .data-table tr:hover td { background:#f8fff8; }
-  .filter-btn { padding:0.35rem 0.875rem; border-radius:0.5rem; font-size:0.8rem; font-weight:500; border:1px solid #e2e8f0; background:white; color:#64748b; cursor:pointer; transition:all 0.15s; }
-  .filter-btn:hover { border-color:#86efac; color:#15803d; background:#f0fdf4; }
-  .filter-btn.active { border-color:#16a34a; background:#dcfce7; color:#166534; font-weight:700; }
   .page-btn { padding:0.35rem 0.75rem; border-radius:0.5rem; font-size:0.8rem; border:1px solid #e2e8f0; background:white; color:#64748b; cursor:pointer; transition:all 0.15s; }
   .page-btn:hover:not(:disabled) { border-color:#86efac; color:#16a34a; }
   .page-btn:disabled { opacity:0.4; cursor:not-allowed; }
@@ -19,99 +16,53 @@
 {% endblock %}
 
 {% block content %}
-
 <div style="display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:0.75rem; margin-bottom:1.5rem;">
   <div>
     <h1 style="font-size:1.5rem; font-weight:700; color:#0f172a; margin:0 0 0.25rem;">Sensor Logs</h1>
-    <p style="font-size:0.875rem; color:#64748b; margin:0;">Full history of wind and solar readings</p>
+    <p style="font-size:0.875rem; color:#64748b; margin:0;">Full history of turbine, solar, and battery readings</p>
   </div>
-  <button onclick="exportCSV()"
-    style="display:flex; align-items:center; gap:0.5rem; padding:0.5rem 1rem; border-radius:0.5rem; background:#16a34a; color:white; font-size:0.875rem; font-weight:600; border:none; cursor:pointer; transition:background 0.15s;"
-    onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
-    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-      <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 4v11"/>
-    </svg>
+  <button onclick="exportCSV()" style="display:flex; align-items:center; gap:0.5rem; padding:0.5rem 1rem; border-radius:0.5rem; background:#16a34a; color:white; font-size:0.875rem; font-weight:600; border:none; cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
+    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 4v11"/></svg>
     Export CSV
   </button>
 </div>
 
-<!-- Stats row -->
-<div style="display:grid; grid-template-columns:repeat(5,1fr); gap:0.75rem; margin-bottom:1rem;">
-  <div class="stat-card">
-    <div style="font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:#94a3b8; margin-bottom:0.25rem;">Today</div>
-    <div id="stat-total" style="font-size:1.5rem; font-weight:700; font-family:'JetBrains Mono',monospace; color:#0f172a;">–</div>
-  </div>
-  <div class="stat-card">
-    <div style="font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:#16a34a; margin-bottom:0.25rem;">Avg Wind Today</div>
-    <div id="stat-wind" style="font-size:1.5rem; font-weight:700; font-family:'JetBrains Mono',monospace; color:#15803d;">–</div>
-  </div>
-  <div class="stat-card">
-    <div style="font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:#15803d; margin-bottom:0.25rem;">Avg Turbine Today</div>
-    <div id="stat-turbine" style="font-size:1.5rem; font-weight:700; font-family:'JetBrains Mono',monospace; color:#15803d;">–</div>
-  </div>
-  <div class="stat-card">
-    <div style="font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:#d97706; margin-bottom:0.25rem;">Avg Solar Today</div>
-    <div id="stat-solar" style="font-size:1.5rem; font-weight:700; font-family:'JetBrains Mono',monospace; color:#92400e;">–</div>
-  </div>
-  <div class="stat-card">
-    <div style="font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:#2563eb; margin-bottom:0.25rem;">Avg SOC Today</div>
-    <div id="stat-soc" style="font-size:1.5rem; font-weight:700; font-family:'JetBrains Mono',monospace; color:#1d4ed8;">–</div>
-  </div>
+<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:0.75rem; margin-bottom:1rem;">
+  <div class="stat-card"><div style="font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:#94a3b8; margin-bottom:0.25rem;">Today</div><div id="stat-total" style="font-size:1.5rem; font-weight:700; font-family:'JetBrains Mono',monospace; color:#0f172a;">-</div></div>
+  <div class="stat-card"><div style="font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:#15803d; margin-bottom:0.25rem;">Avg Turbine Today</div><div id="stat-turbine" style="font-size:1.5rem; font-weight:700; font-family:'JetBrains Mono',monospace; color:#15803d;">-</div></div>
+  <div class="stat-card"><div style="font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:#d97706; margin-bottom:0.25rem;">Avg Solar Today</div><div id="stat-solar" style="font-size:1.5rem; font-weight:700; font-family:'JetBrains Mono',monospace; color:#92400e;">-</div></div>
+  <div class="stat-card"><div style="font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:#2563eb; margin-bottom:0.25rem;">Avg SOC Today</div><div id="stat-soc" style="font-size:1.5rem; font-weight:700; font-family:'JetBrains Mono',monospace; color:#1d4ed8;">-</div></div>
 </div>
 
-<!-- Per-page -->
 <div class="card" style="padding:0.875rem 1.25rem; margin-bottom:1rem; display:flex; flex-wrap:wrap; align-items:center; gap:0.5rem;">
   <span class="section-label" style="margin-right:0.25rem;">Per page:</span>
-  <select id="per-page-sel" onchange="reloadLogs()"
-    style="border:1px solid #e2e8f0; border-radius:0.375rem; padding:0.3rem 0.5rem; font-size:0.8rem; color:#374151; background:white; cursor:pointer;">
-    <option value="25">25</option>
-    <option value="50" selected>50</option>
-    <option value="100">100</option>
-  </select>
+  <select id="per-page-sel" onchange="reloadLogs()" style="border:1px solid #e2e8f0; border-radius:0.375rem; padding:0.3rem 0.5rem; font-size:0.8rem; color:#374151; background:white; cursor:pointer;"><option value="25">25</option><option value="50" selected>50</option><option value="100">100</option></select>
 </div>
 
-<!-- Table -->
 <div class="card" style="overflow:hidden;">
   <div style="overflow-x:auto;">
     <table class="data-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Timestamp</th>
-          <th style="text-align:right;">Wind (m/s)</th>
-          <th style="text-align:right;">Wind (km/h)</th>
-          <th style="text-align:right;">Turbine V</th>
-          <th style="text-align:right;">Turbine A</th>
-          <th style="text-align:right;">Turbine W</th>
-          <th style="text-align:right;">Solar V</th>
-          <th style="text-align:right;">Solar A</th>
-          <th style="text-align:right;">Solar W</th>
-          <th style="text-align:right;">Batt V</th>
-          <th style="text-align:right;">SOC %</th>
-        </tr>
-      </thead>
-      <tbody id="log-tbody">
-        <tr><td colspan="12" style="text-align:center;padding:3rem;color:#94a3b8;">Loading…</td></tr>
-      </tbody>
+      <thead><tr><th>#</th><th>Timestamp</th><th style="text-align:right;">Turbine V</th><th style="text-align:right;">Turbine A</th><th style="text-align:right;">Turbine W</th><th style="text-align:right;">Solar V</th><th style="text-align:right;">Solar A</th><th style="text-align:right;">Solar W</th><th style="text-align:right;">Batt V</th><th style="text-align:right;">SOC %</th></tr></thead>
+      <tbody id="log-tbody"><tr><td colspan="10" style="text-align:center;padding:3rem;color:#94a3b8;">Loading...</td></tr></tbody>
     </table>
   </div>
   <div style="padding:0.875rem 1.25rem; border-top:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between;">
-    <span id="page-info" style="font-size:0.72rem; color:#94a3b8; font-family:'JetBrains Mono',monospace;">–</span>
-    <div style="display:flex; gap:0.5rem;">
-      <button id="btn-prev" class="page-btn" onclick="changePage(-1)">← Prev</button>
-      <button id="btn-next" class="page-btn" onclick="changePage(1)">Next →</button>
-    </div>
+    <span id="page-info" style="font-size:0.72rem; color:#94a3b8; font-family:'JetBrains Mono',monospace;">-</span>
+    <div style="display:flex; gap:0.5rem;"><button id="btn-prev" class="page-btn" onclick="changePage(-1)">Prev</button><button id="btn-next" class="page-btn" onclick="changePage(1)">Next</button></div>
   </div>
 </div>
-
 {% endblock %}
 
 {% block scripts %}
 <script>
 let currentPage = 1;
-let totalCount  = 0;
-let allData     = [];
+let totalCount = 0;
+let allData = [];
 let dailySummary = null;
+
+function hasValue(value) { return value !== null && value !== undefined && !Number.isNaN(Number(value)); }
+function fmtNum(value, digits) { return hasValue(value) ? Number(value).toFixed(digits) : '-'; }
+function fmtUnit(value, digits, unit) { return hasValue(value) ? Number(value).toFixed(digits) + unit : '-'; }
 
 function changePage(dir) {
   const pp = parseInt(document.getElementById('per-page-sel').value);
@@ -122,11 +73,11 @@ function changePage(dir) {
 function reloadLogs() { currentPage = 1; loadLogs(); }
 
 async function loadLogs() {
-  const pp  = parseInt(document.getElementById('per-page-sel').value);
-  const qs  = new URLSearchParams({ page: currentPage, per_page: pp });
+  const pp = parseInt(document.getElementById('per-page-sel').value);
+  const qs = new URLSearchParams({ page: currentPage, per_page: pp });
   const res = await fetch('/api/logs?' + qs).then(r => r.json());
   totalCount = res.count || 0;
-  allData    = res.data  || [];
+  allData = res.data || [];
   dailySummary = res.daily_summary || null;
   renderTable(allData, pp);
   renderStats();
@@ -135,30 +86,27 @@ async function loadLogs() {
 function renderTable(rows, pp) {
   const tbody = document.getElementById('log-tbody');
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:3rem;color:#94a3b8;">No records found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:3rem;color:#94a3b8;">No records found.</td></tr>';
   } else {
     tbody.innerHTML = rows.map((row, i) => {
       const num = (currentPage - 1) * pp + i + 1;
-      const wc  = wind_color(row.wind_mps);
-      const sc  = soc_color(row.battery_soc);
+      const sc = hasValue(row.battery_soc) ? soc_color(row.battery_soc) : '#94a3b8';
       return `<tr>
         <td style="color:#94a3b8; font-family:'JetBrains Mono',monospace; font-size:0.72rem;">${num}</td>
         <td style="font-family:'JetBrains Mono',monospace; font-size:0.78rem; color:#64748b;">${fmtTime(row.timestamp)}</td>
-        <td style="text-align:right; font-family:'JetBrains Mono',monospace; font-weight:700; color:${wc};">${parseFloat(row.wind_mps).toFixed(2)}</td>
-        <td style="text-align:right; font-family:'JetBrains Mono',monospace; color:#64748b;">${parseFloat(row.wind_kmh).toFixed(1)}</td>
-        <td style="text-align:right; font-family:'JetBrains Mono',monospace;">${parseFloat(row.turbine_voltage).toFixed(3)}</td>
-        <td style="text-align:right; font-family:'JetBrains Mono',monospace;">${parseFloat(row.turbine_current).toFixed(3)}</td>
-        <td style="text-align:right; font-family:'JetBrains Mono',monospace; font-weight:700; color:#15803d;">${parseFloat(row.turbine_power).toFixed(2)}</td>
-        <td style="text-align:right; font-family:'JetBrains Mono',monospace;">${parseFloat(row.solar_voltage).toFixed(3)}</td>
-        <td style="text-align:right; font-family:'JetBrains Mono',monospace;">${parseFloat(row.solar_current).toFixed(3)}</td>
-        <td style="text-align:right; font-family:'JetBrains Mono',monospace; font-weight:700; color:#d97706;">${parseFloat(row.solar_power).toFixed(2)}</td>
-        <td style="text-align:right; font-family:'JetBrains Mono',monospace; color:#64748b;">${parseFloat(row.battery_voltage).toFixed(3)}</td>
-        <td style="text-align:right; font-family:'JetBrains Mono',monospace; font-weight:700; color:${sc};">${parseFloat(row.battery_soc).toFixed(1)}%</td>
+        <td style="text-align:right; font-family:'JetBrains Mono',monospace;">${fmtNum(row.turbine_voltage, 3)}</td>
+        <td style="text-align:right; font-family:'JetBrains Mono',monospace;">${fmtNum(row.turbine_current, 3)}</td>
+        <td style="text-align:right; font-family:'JetBrains Mono',monospace; font-weight:700; color:#15803d;">${fmtNum(row.turbine_power, 2)}</td>
+        <td style="text-align:right; font-family:'JetBrains Mono',monospace;">${fmtNum(row.solar_voltage, 3)}</td>
+        <td style="text-align:right; font-family:'JetBrains Mono',monospace;">${fmtNum(row.solar_current, 3)}</td>
+        <td style="text-align:right; font-family:'JetBrains Mono',monospace; font-weight:700; color:#d97706;">${fmtNum(row.solar_power, 2)}</td>
+        <td style="text-align:right; font-family:'JetBrains Mono',monospace; color:#64748b;">${fmtNum(row.battery_voltage, 3)}</td>
+        <td style="text-align:right; font-family:'JetBrains Mono',monospace; font-weight:700; color:${sc};">${fmtUnit(row.battery_soc, 1, '%')}</td>
       </tr>`;
     }).join('');
   }
   const max = Math.ceil(totalCount / pp) || 1;
-  document.getElementById('page-info').textContent = `Page ${currentPage} of ${max} · ${totalCount.toLocaleString()} total`;
+  document.getElementById('page-info').textContent = `Page ${currentPage} of ${max} - ${totalCount.toLocaleString()} total`;
   document.getElementById('btn-prev').disabled = currentPage <= 1;
   document.getElementById('btn-next').disabled = currentPage >= max;
 }
@@ -166,22 +114,16 @@ function renderTable(rows, pp) {
 function renderStats() {
   const s = dailySummary || {};
   document.getElementById('stat-total').textContent = (s.count || 0).toLocaleString();
-  document.getElementById('stat-wind').textContent = s.avg_wind_mps == null ? '–' : Number(s.avg_wind_mps).toFixed(1) + ' m/s';
-  document.getElementById('stat-turbine').textContent = s.avg_turbine_power == null ? '–' : Number(s.avg_turbine_power).toFixed(1) + ' W';
-  document.getElementById('stat-solar').textContent = s.avg_solar_power == null ? '–' : Number(s.avg_solar_power).toFixed(1) + ' W';
-  document.getElementById('stat-soc').textContent = s.avg_battery_soc == null ? '–' : Number(s.avg_battery_soc).toFixed(0) + '%';
+  document.getElementById('stat-turbine').textContent = s.avg_turbine_power == null ? '-' : Number(s.avg_turbine_power).toFixed(1) + ' W';
+  document.getElementById('stat-solar').textContent = s.avg_solar_power == null ? '-' : Number(s.avg_solar_power).toFixed(1) + ' W';
+  document.getElementById('stat-soc').textContent = s.avg_battery_soc == null ? '-' : Number(s.avg_battery_soc).toFixed(0) + '%';
 }
 
 function exportCSV() {
-  const header = 'timestamp,wind_mps,wind_kmh,turbine_voltage,turbine_current,turbine_power,solar_voltage,solar_current,solar_power,battery_voltage,battery_soc\n';
-  const body   = allData.map(r =>
-    `${r.timestamp},${r.wind_mps},${r.wind_kmh},${r.turbine_voltage},${r.turbine_current},${r.turbine_power},${r.solar_voltage},${r.solar_current},${r.solar_power},${r.battery_voltage},${r.battery_soc}`
-  ).join('\n');
+  const header = 'timestamp,turbine_voltage,turbine_current,turbine_power,solar_voltage,solar_current,solar_power,battery_voltage,battery_soc\n';
+  const body = allData.map(r => `${r.timestamp},${r.turbine_voltage ?? ''},${r.turbine_current ?? ''},${r.turbine_power ?? ''},${r.solar_voltage ?? ''},${r.solar_current ?? ''},${r.solar_power ?? ''},${r.battery_voltage ?? ''},${r.battery_soc ?? ''}`).join('\n');
   const blob = new Blob([header + body], { type: 'text/csv' });
-  const a    = Object.assign(document.createElement('a'), {
-    href: URL.createObjectURL(blob),
-    download: `aerogen_logs_${new Date().toISOString().slice(0,10)}.csv`
-  });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `aerogen_logs_${new Date().toISOString().slice(0,10)}.csv` });
   a.click();
   URL.revokeObjectURL(a.href);
 }

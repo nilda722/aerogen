@@ -48,11 +48,8 @@
 
     <div class="card" style="padding:1.5rem;">
       <div class="section-title">Battery Parameters</div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
-        <div><label class="field-label">Full Voltage (V)</label><input id="batt-full" type="number" min="10" max="30" step="0.1"></div>
-        <div><label class="field-label">Empty Voltage (V)</label><input id="batt-empty" type="number" min="8" max="28" step="0.1"></div>
-      </div>
       <div><label class="field-label">Capacity (Ah)</label><input id="batt-cap" type="number" min="1" max="1000" step="1"></div>
+      <p class="field-hint">SOC uses the 12V battery voltage table: 12.80V+ = 100%, 12.05V = 50%, 10.50V or lower = 0%.</p>
     </div>
   </div>
 
@@ -106,8 +103,6 @@ async function loadSettings() {
   const s = await fetch('/api/settings').then(r => r.json());
   document.getElementById('interval-input').value = s.sampling_interval;
   intervalDisp.textContent = s.sampling_interval + ' s';
-  document.getElementById('batt-full').value = s.battery_full_v;
-  document.getElementById('batt-empty').value = s.battery_empty_v;
   document.getElementById('batt-cap').value = s.battery_capacity_ah;
   document.getElementById('log-toggle').checked = s.logging_enabled !== false;
   document.getElementById('acs-sens').value = s.acs_sensitivity_mv;
@@ -120,8 +115,6 @@ async function loadSettings() {
 async function saveSettings() {
   const payload = {
     sampling_interval: parseInt(document.getElementById('interval-input').value),
-    battery_full_v: parseFloat(document.getElementById('batt-full').value),
-    battery_empty_v: parseFloat(document.getElementById('batt-empty').value),
     battery_capacity_ah: parseInt(document.getElementById('batt-cap').value),
     logging_enabled: document.getElementById('log-toggle').checked,
     acs_sensitivity_mv: parseFloat(document.getElementById('acs-sens').value),
@@ -163,3 +156,4 @@ loadStatus(true);
 setInterval(() => loadStatus(false), 5000);
 </script>
 {% endblock %}
+

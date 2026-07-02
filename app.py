@@ -43,8 +43,6 @@ _memory_log = []
 _settings = {
     "sampling_interval": 2,
     "battery_capacity_ah": 100,
-    "battery_full_v": 14.4,
-    "battery_empty_v": 11.0,
     "logging_enabled": True,
     "acs_sensitivity_mv": 66.0,
     "acs_vref": 2.50,
@@ -190,6 +188,41 @@ def empty_reading(mode):
     return package_reading(None, None, None, None, None, mode)
 
 
+BATTERY_SOC_TABLE = [
+    (13.00, 100.0),
+    (12.80, 100.0),
+    (12.65, 90.0),
+    (12.50, 80.0),
+    (12.35, 70.0),
+    (12.20, 60.0),
+    (12.05, 50.0),
+    (11.90, 40.0),
+    (11.75, 30.0),
+    (11.58, 20.0),
+    (11.30, 10.0),
+    (10.50, 0.0),
+]
+
+
+def battery_soc_from_voltage(voltage):
+    if voltage is None:
+        return None
+    points = BATTERY_SOC_TABLE
+    if voltage >= points[0][0]:
+        return 100.0
+    if voltage <= points[-1][0]:
+        return 0.0
+    for index in range(len(points) - 1):
+        high_v, high_soc = points[index]
+        low_v, low_soc = points[index + 1]
+        if high_v >= voltage >= low_v:
+            span = high_v - low_v
+            if span <= 0:
+                return low_soc
+            position = (voltage - low_v) / span
+            return low_soc + position * (high_soc - low_soc)
+    return None
+
 def package_reading(turbine_v, turbine_i, solar_v, solar_i, battery_v, mode):
     turbine_v = clean_voltage(turbine_v)
     solar_v = clean_voltage(solar_v)
@@ -202,11 +235,7 @@ def package_reading(turbine_v, turbine_i, solar_v, solar_i, battery_v, mode):
     valid_powers = [p for p in (turbine_p, solar_p) if p is not None]
     total_power = sum(valid_powers) if valid_powers else None
 
-    full = float(_settings["battery_full_v"])
-    empty = float(_settings["battery_empty_v"])
-    battery_soc = None
-    if battery_v is not None and full > empty:
-        battery_soc = max(0.0, min(100.0, (battery_v - empty) / (full - empty) * 100))
+    battery_soc = battery_soc_from_voltage(battery_v)
 
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -461,6 +490,7 @@ def health():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
 
 
 

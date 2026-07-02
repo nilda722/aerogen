@@ -4,8 +4,8 @@
 {% block head %}
 <style>
   .section-title { font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.09em; color:#64748b; margin-bottom:1.25rem; padding-bottom:0.75rem; border-bottom:1px solid #f1f5f9; }
-  .field-label  { font-size:0.875rem; font-weight:500; color:#374151; margin-bottom:0.25rem; display:block; }
-  .field-hint   { font-size:0.75rem; color:#94a3b8; margin-top:0.25rem; }
+  .field-label { font-size:0.875rem; font-weight:500; color:#374151; margin-bottom:0.25rem; display:block; }
+  .field-hint { font-size:0.75rem; color:#94a3b8; margin-top:0.25rem; }
   .save-btn { width:100%; padding:0.75rem; border-radius:0.625rem; background:#16a34a; color:white; font-size:0.875rem; font-weight:700; border:none; cursor:pointer; transition:background 0.15s; }
   .save-btn:hover { background:#15803d; }
   #toast { position:fixed; top:74px; right:1.5rem; z-index:100; padding:0.75rem 1.25rem; border-radius:0.625rem; background:#16a34a; color:white; font-size:0.875rem; font-weight:600; box-shadow:0 4px 14px rgba(0,0,0,0.12); opacity:0; transform:translateY(-8px); transition:opacity 0.25s, transform 0.25s; pointer-events:none; }
@@ -16,7 +16,6 @@
   .status-sub { font-size:0.72rem; color:#94a3b8; margin-top:0.15rem; font-family:'JetBrains Mono',monospace; overflow-wrap:anywhere; }
   .pill { display:inline-flex; align-items:center; white-space:nowrap; padding:0.25rem 0.625rem; border-radius:9999px; font-size:0.72rem; font-weight:700; letter-spacing:0.02em; }
   .pill-ok { background:#dcfce7; color:#15803d; }
-  .pill-simulated { background:#dbeafe; color:#1d4ed8; }
   .pill-missing, .pill-error { background:#fee2e2; color:#b91c1c; }
   .pill-warn { background:#fef3c7; color:#92400e; }
   .toggle { position:relative; display:inline-flex; align-items:center; cursor:pointer; }
@@ -25,8 +24,8 @@
   .toggle input:checked + .toggle-track { background:#16a34a; }
   .toggle-thumb { position:absolute; top:3px; left:3px; width:18px; height:18px; background:white; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,0.2); transition:transform 0.2s; pointer-events:none; }
   .toggle input:checked + .toggle-track + .toggle-thumb { transform:translateX(18px); }
-  input[type=number], input[type=text] { border:1px solid #e2e8f0; border-radius:0.5rem; padding:0.5rem 0.75rem; font-size:0.875rem; color:#374151; font-family:'JetBrains Mono',monospace; width:100%; outline:none; transition:border 0.15s; }
-  input[type=number]:focus, input[type=text]:focus { border-color:#16a34a; box-shadow:0 0 0 2px rgba(22,163,74,0.15); }
+  input[type=number] { border:1px solid #e2e8f0; border-radius:0.5rem; padding:0.5rem 0.75rem; font-size:0.875rem; color:#374151; font-family:'JetBrains Mono',monospace; width:100%; outline:none; transition:border 0.15s; }
+  input[type=number]:focus { border-color:#16a34a; box-shadow:0 0 0 2px rgba(22,163,74,0.15); }
   input[type=range]::-webkit-slider-thumb { background:#16a34a; box-shadow:0 0 0 1px #16a34a; }
 </style>
 {% endblock %}
@@ -43,113 +42,45 @@
   <div style="display:flex; flex-direction:column; gap:1rem;">
     <div class="card" style="padding:1.5rem;">
       <div class="section-title">Sensor Status</div>
-      <div id="sensor-status">
-        <div class="status-row">
-          <div>
-            <div class="status-name">Loading sensors</div>
-            <div class="status-sub">Reading /api/status</div>
-          </div>
-          <span class="pill pill-warn">Checking</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="card" style="padding:1.5rem;">
-      <div class="section-title">Wind Anemometer</div>
-      <div style="margin-bottom:1.25rem;">
-        <label class="field-label">Max Wind Speed (m/s)</label>
-        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.375rem;">
-          <span style="font-size:0.78rem; color:#64748b;">Used to scale the dashboard gauge</span>
-          <span id="wind-max-disp" class="mono" style="font-size:0.875rem; font-weight:700; color:#15803d;">30 m/s</span>
-        </div>
-        <input id="wind-max-input" type="range" min="10" max="60" step="1" oninput="windMaxDisp.textContent=this.value+' m/s'">
-      </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
-        <div>
-          <label class="field-label">RS485 Port</label>
-          <input id="rs485-port" type="text">
-        </div>
-        <div>
-          <label class="field-label">Modbus Address</label>
-          <input id="modbus-addr" type="number" min="1" max="247">
-        </div>
-      </div>
+      <div id="sensor-status"><div class="status-row"><div><div class="status-name">Loading sensors</div><div class="status-sub">Reading /api/status</div></div><span class="pill pill-warn">Checking</span></div></div>
+      <p class="field-hint" style="margin-top:0.75rem;">Missing Raspberry Pi hardware, I2C, ADC, or sensor connections appear here.</p>
     </div>
 
     <div class="card" style="padding:1.5rem;">
       <div class="section-title">Battery Parameters</div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
-        <div>
-          <label class="field-label">Full Voltage (V)</label>
-          <input id="batt-full" type="number" min="10" max="30" step="0.1">
-        </div>
-        <div>
-          <label class="field-label">Empty Voltage (V)</label>
-          <input id="batt-empty" type="number" min="8" max="28" step="0.1">
-        </div>
+        <div><label class="field-label">Full Voltage (V)</label><input id="batt-full" type="number" min="10" max="30" step="0.1"></div>
+        <div><label class="field-label">Empty Voltage (V)</label><input id="batt-empty" type="number" min="8" max="28" step="0.1"></div>
       </div>
-      <div>
-        <label class="field-label">Capacity (Ah)</label>
-        <input id="batt-cap" type="number" min="1" max="1000" step="1">
-      </div>
+      <div><label class="field-label">Capacity (Ah)</label><input id="batt-cap" type="number" min="1" max="1000" step="1"></div>
     </div>
   </div>
 
   <div style="display:flex; flex-direction:column; gap:1rem;">
-    <div class="card" style="padding:1.5rem;">
-      <div class="section-title">Runtime Status</div>
-      <div id="runtime-status"></div>
-    </div>
+    <div class="card" style="padding:1.5rem;"><div class="section-title">Runtime Status</div><div id="runtime-status"></div></div>
 
     <div class="card" style="padding:1.5rem;">
       <div class="section-title">ADC Calibration</div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
-        <div>
-          <label class="field-label">ACS712 Sensitivity (mV/A)</label>
-          <input id="acs-sens" type="number" min="10" max="200" step="1">
-          <p class="field-hint">30A ACS712 is usually 66 mV/A.</p>
-        </div>
-        <div>
-          <label class="field-label">Zero-current Vref (V)</label>
-          <input id="acs-vref" type="number" min="0" max="5" step="0.01">
-          <p class="field-hint">Usually Vcc / 2.</p>
-        </div>
+        <div><label class="field-label">ACS712 Sensitivity (mV/A)</label><input id="acs-sens" type="number" min="10" max="200" step="1"><p class="field-hint">30A ACS712 is usually 66 mV/A.</p></div>
+        <div><label class="field-label">Zero-current Vref (V)</label><input id="acs-vref" type="number" min="0" max="5" step="0.01"><p class="field-hint">Usually Vcc / 2.</p></div>
       </div>
       <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:1rem;">
-        <div>
-          <label class="field-label">Turbine V Ratio</label>
-          <input id="turbine-ratio" type="number" min="1" max="100" step="0.1">
-        </div>
-        <div>
-          <label class="field-label">Solar V Ratio</label>
-          <input id="solar-ratio" type="number" min="1" max="100" step="0.1">
-        </div>
-        <div>
-          <label class="field-label">Battery V Ratio</label>
-          <input id="battery-ratio" type="number" min="1" max="100" step="0.1">
-        </div>
+        <div><label class="field-label">Turbine V Ratio</label><input id="turbine-ratio" type="number" min="1" max="100" step="0.1"></div>
+        <div><label class="field-label">Solar V Ratio</label><input id="solar-ratio" type="number" min="1" max="100" step="0.1"></div>
+        <div><label class="field-label">Battery V Ratio</label><input id="battery-ratio" type="number" min="1" max="100" step="0.1"></div>
       </div>
     </div>
 
     <div class="card" style="padding:1.5rem;">
       <div class="section-title">Sampling And Logging</div>
       <div style="margin-bottom:1rem;">
-        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.5rem;">
-          <label class="field-label">Sampling Interval</label>
-          <span id="interval-disp" class="mono" style="font-size:0.875rem; font-weight:700; color:#2563eb;">2 s</span>
-        </div>
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.5rem;"><label class="field-label">Sampling Interval</label><span id="interval-disp" class="mono" style="font-size:0.875rem; font-weight:700; color:#2563eb;">2 s</span></div>
         <input id="interval-input" type="range" min="1" max="60" step="1" oninput="intervalDisp.textContent=this.value+' s'">
       </div>
       <div style="display:flex; align-items:center; justify-content:space-between; padding-top:0.875rem; border-top:1px solid #f8fafc;">
-        <div>
-          <div style="font-size:0.875rem; font-weight:600; color:#374151;">Data Logging</div>
-          <div style="font-size:0.75rem; color:#94a3b8; margin-top:0.125rem;">Save readings to Supabase when configured, otherwise memory</div>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="log-toggle">
-          <div class="toggle-track"></div>
-          <div class="toggle-thumb"></div>
-        </label>
+        <div><div style="font-size:0.875rem; font-weight:600; color:#374151;">Data Logging</div><div style="font-size:0.75rem; color:#94a3b8; margin-top:0.125rem;">Save readings to Supabase when configured, otherwise memory</div></div>
+        <label class="toggle"><input type="checkbox" id="log-toggle"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
       </div>
     </div>
 
@@ -160,29 +91,19 @@
 
 {% block scripts %}
 <script>
-const windMaxDisp = document.getElementById('wind-max-disp');
 const intervalDisp = document.getElementById('interval-disp');
 
 function pill(status) {
-  const labels = { ok:'OK', simulated:'Simulated', missing:'Missing', error:'Error' };
-  const cls = ['ok', 'simulated', 'missing', 'error'].includes(status) ? status : 'warn';
+  const labels = { ok:'OK', missing:'Missing', error:'Error', warn:'Check' };
+  const cls = ['ok', 'missing', 'error'].includes(status) ? status : 'warn';
   return `<span class="pill pill-${cls}">${labels[status] || status || 'Unknown'}</span>`;
 }
-
 function statusRow(name, detail, status) {
-  return `<div class="status-row">
-    <div>
-      <div class="status-name">${name}</div>
-      <div class="status-sub">${detail || ''}</div>
-    </div>
-    ${pill(status)}
-  </div>`;
+  return `<div class="status-row"><div><div class="status-name">${name}</div><div class="status-sub">${detail || ''}</div></div>${pill(status)}</div>`;
 }
 
 async function loadSettings() {
   const s = await fetch('/api/settings').then(r => r.json());
-  document.getElementById('wind-max-input').value = s.wind_max_mps;
-  windMaxDisp.textContent = s.wind_max_mps + ' m/s';
   document.getElementById('interval-input').value = s.sampling_interval;
   intervalDisp.textContent = s.sampling_interval + ' s';
   document.getElementById('batt-full').value = s.battery_full_v;
@@ -191,8 +112,6 @@ async function loadSettings() {
   document.getElementById('log-toggle').checked = s.logging_enabled !== false;
   document.getElementById('acs-sens').value = s.acs_sensitivity_mv;
   document.getElementById('acs-vref').value = s.acs_vref;
-  document.getElementById('modbus-addr').value = s.modbus_address;
-  document.getElementById('rs485-port').value = s.rs485_port;
   document.getElementById('turbine-ratio').value = s.turbine_voltage_ratio;
   document.getElementById('solar-ratio').value = s.solar_voltage_ratio;
   document.getElementById('battery-ratio').value = s.battery_voltage_ratio;
@@ -200,7 +119,6 @@ async function loadSettings() {
 
 async function saveSettings() {
   const payload = {
-    wind_max_mps: parseFloat(document.getElementById('wind-max-input').value),
     sampling_interval: parseInt(document.getElementById('interval-input').value),
     battery_full_v: parseFloat(document.getElementById('batt-full').value),
     battery_empty_v: parseFloat(document.getElementById('batt-empty').value),
@@ -208,8 +126,6 @@ async function saveSettings() {
     logging_enabled: document.getElementById('log-toggle').checked,
     acs_sensitivity_mv: parseFloat(document.getElementById('acs-sens').value),
     acs_vref: parseFloat(document.getElementById('acs-vref').value),
-    modbus_address: parseInt(document.getElementById('modbus-addr').value),
-    rs485_port: document.getElementById('rs485-port').value,
     turbine_voltage_ratio: parseFloat(document.getElementById('turbine-ratio').value),
     solar_voltage_ratio: parseFloat(document.getElementById('solar-ratio').value),
     battery_voltage_ratio: parseFloat(document.getElementById('battery-ratio').value),
@@ -227,22 +143,17 @@ function showToast() {
 
 async function loadStatus(fresh=false) {
   const h = await fetch('/api/status' + (fresh ? '?fresh=1' : '')).then(r => r.json());
-  document.getElementById('mode-summary').textContent =
-    `AeroGen is running in ${h.mode} mode. Requested mode: ${h.requested_mode}.`;
-
-  document.getElementById('sensor-status').innerHTML = (h.sensors || [])
-    .map(s => statusRow(s.name, s.detail, s.status))
-    .join('');
-
+  document.getElementById('mode-summary').textContent = 'AeroGen is running in Raspberry Pi 4 hardware mode.';
+  document.getElementById('sensor-status').innerHTML = (h.sensors || []).map(s => statusRow(s.name, s.detail, s.status)).join('');
   const sys = h.system || {};
   const sb = h.supabase || {};
   const rows = [
-    statusRow('Runtime mode', `Active backend: ${h.mode}`, h.mode === 'simulation' ? 'simulated' : 'ok'),
+    statusRow('Runtime mode', 'Raspberry Pi hardware mode', 'ok'),
     statusRow('Host', `${sys.host || 'unknown'} - ${sys.platform || 'unknown'}`, 'ok'),
     statusRow('Python', sys.python || 'unknown', 'ok'),
     statusRow('Memory', sys.memory_used_pct == null ? 'Not available' : `${sys.memory_used_pct}% used`, sys.memory_used_pct == null ? 'warn' : 'ok'),
     statusRow('Disk', sys.disk_used_pct == null ? 'Not available' : `${sys.disk_used_pct}% used`, sys.disk_used_pct == null ? 'warn' : 'ok'),
-    statusRow('Supabase logging', sb.enabled ? (sb.ok ? 'Connected' : (sb.error || 'Configured but unreachable')) : 'Not configured', sb.enabled ? (sb.ok ? 'ok' : 'error') : 'simulated'),
+    statusRow('Supabase logging', sb.enabled ? (sb.ok ? 'Connected' : (sb.error || 'Configured but unreachable')) : 'Not configured', sb.enabled ? (sb.ok ? 'ok' : 'error') : 'warn'),
   ];
   document.getElementById('runtime-status').innerHTML = rows.join('');
 }

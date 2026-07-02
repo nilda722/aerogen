@@ -1,8 +1,6 @@
-import math
+import json
 import os
 import platform
-import random
-import json
 import shutil
 import time
 from datetime import datetime, timedelta, timezone
@@ -11,13 +9,6 @@ from flask import Flask, jsonify, render_template, request
 
 
 app = Flask(__name__)
-
-# ── MAX485 DE/RE GPIO pin (BCM numbering) ────────────────────────────────────
-DE_RE_PIN = 17  # Change this if you used a different GPIO pin
-
-def _env_mode():
-    return os.environ.get("AEROGEN_MODE", "auto").strip().lower()
-
 
 try:
     import board
@@ -33,33 +24,6 @@ except Exception as exc:
     HARDWARE_IMPORT_ERROR = str(exc)
 
 
-# ── GPIO setup for MAX485 DE/RE ───────────────────────────────────────────────
-GPIO = None
-GPIO_AVAILABLE = False
-
-try:
-    import RPi.GPIO as _GPIO
-    GPIO = _GPIO
-    GPIO_AVAILABLE = True
-except Exception:
-    GPIO_AVAILABLE = False
-
-
-def init_gpio():
-    """Set up DE/RE pin for MAX485 direction control."""
-    if not GPIO_AVAILABLE:
-        app.logger.warning("RPi.GPIO not available — MAX485 DE/RE control disabled")
-        return
-    try:
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(DE_RE_PIN, GPIO.OUT)
-        GPIO.output(DE_RE_PIN, GPIO.LOW)  # default: receive mode
-        app.logger.info("GPIO %d configured for MAX485 DE/RE", DE_RE_PIN)
-    except Exception as exc:
-        app.logger.warning("GPIO init failed: %s", exc)
-
-
-# ── Supabase ──────────────────────────────────────────────────────────────────
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 SUPABASE_AVAILABLE = bool(SUPABASE_URL and SUPABASE_KEY)
@@ -77,7 +41,6 @@ except Exception:
 
 _memory_log = []
 _settings = {
-    "wind_max_mps": 30.0,
     "sampling_interval": 2,
     "battery_capacity_ah": 100,
     "battery_full_v": 14.4,
@@ -85,20 +48,19 @@ _settings = {
     "logging_enabled": True,
     "acs_sensitivity_mv": 66.0,
     "acs_vref": 2.50,
-    "modbus_address": 1,
-    "rs485_port": "/dev/ttyAMA0",   # Changed from /dev/ttyUSB0 → UART on Pi GPIO
     "turbine_voltage_ratio": 6.0,
     "solar_voltage_ratio": 6.0,
     "battery_voltage_ratio": 6.0,
 }
-SETTINGS_FILE = os.environ.get(
-    "AEROGEN_SETTINGS_FILE", os.path.join(os.getcwd(), "aerogen_settings.json")
-)
+SETTINGS_FILE = os.environ.get("AEROGEN_SETTINGS_FILE", os.path.join(os.getcwd(), "aerogen_settings.json"))
 
 _last_probe = {"time": 0.0, "status": None}
 _last_read = {"time": 0.0, "data": None}
 _last_log_time = 0.0
-_sim_t = 0.0
+
+
+def _env_mode():
+    return os.environ.get("AEROGEN_MODE", "hardware").strip().lower()
 
 
 def load_saved_settings():
@@ -120,22 +82,11 @@ def save_settings():
 
 
 def active_mode():
-    mode = _env_mode()
-    if mode in {"sim", "simulation", "simulated", "dev"}:
-        return "simulation"
-    if mode in {"hardware", "pi", "raspberrypi"}:
-        return "hardware"
-    return "hardware" if HARDWARE_IMPORTS_OK else "simulation"
+    return "hardware"
 
 
 def _sensor(name, kind, status, detail, required=True):
-    return {
-        "name": name,
-        "kind": kind,
-        "status": status,
-        "detail": detail,
-        "required": required,
-    }
+    return {"name": name, "kind": kind, "status": status, "detail": detail, "required": required}
 
 
 def probe_status(force=False):
@@ -143,118 +94,37 @@ def probe_status(force=False):
     if not force and _last_probe["status"] and now - _last_probe["time"] < 5:
         return _last_probe["status"]
 
-    mode = active_mode()
     sensors = []
     adc_ok = False
-    rs485_ok = False
 
-    if mode == "simulation":
-        sensors = [
-            _sensor("RS485 anemometer", "wind_speed", "simulated", "Laptop simulation active"),
-            _sensor("ADS1115 ADC", "adc", "simulated", "ADC readings are generated in software"),
-            _sensor("Turbine ACS712 30A", "turbine_current", "simulated", "Current is generated in software"),
-            _sensor("Turbine voltage divider", "turbine_voltage", "simulated", "Voltage is generated in software"),
-            _sensor("Solar ACS712 30A", "solar_current", "simulated", "Current is generated in software"),
-            _sensor("Solar voltage divider", "solar_voltage", "simulated", "Voltage is generated in software"),
-            _sensor("Battery voltage monitor", "battery_voltage", "simulated", "Battery voltage is generated in software"),
-        ]
+    if not HARDWARE_IMPORTS_OK:
+        sensors.append(_sensor("Raspberry Pi hardware libraries", "hardware_imports", "missing", HARDWARE_IMPORT_ERROR))
     else:
-        if not HARDWARE_IMPORTS_OK:
-            sensors.append(
-                _sensor("Raspberry Pi hardware libraries", "hardware_imports", "missing", HARDWARE_IMPORT_ERROR)
-            )
-        else:
-            # ADS1115 check
-            try:
-                i2c = busio.I2C(board.SCL, board.SDA)
-                ads = ADS.ADS1115(i2c)
-                ads.gain = 1
-                AnalogIn(ads, 0).voltage
-                adc_ok = True
-                sensors.append(_sensor("ADS1115 ADC", "adc", "ok", "I2C ADC detected"))
-            except Exception as exc:
-                sensors.append(_sensor("ADS1115 ADC", "adc", "missing", str(exc)))
+        try:
+            i2c = busio.I2C(board.SCL, board.SDA)
+            ads = ADS.ADS1115(i2c)
+            ads.gain = 1
+            AnalogIn(ads, 0).voltage
+            adc_ok = True
+            sensors.append(_sensor("ADS1115 ADC", "adc", "ok", "I2C ADC detected"))
+        except Exception as exc:
+            sensors.append(_sensor("ADS1115 ADC", "adc", "missing", str(exc)))
 
-            # MAX485 + RS485 anemometer check
-            gpio_detail = (
-                f"MAX485 DE/RE on GPIO{DE_RE_PIN} (RPi.GPIO available)"
-                if GPIO_AVAILABLE
-                else f"MAX485 DE/RE on GPIO{DE_RE_PIN} (RPi.GPIO NOT available)"
-            )
-            try:
-                import minimalmodbus
-                instr = minimalmodbus.Instrument(
-                    _settings["rs485_port"], int(_settings["modbus_address"])
-                )
-                instr.serial.baudrate = 9600
-                instr.serial.timeout = 0.5
-
-                if GPIO_AVAILABLE:
-                    GPIO.output(DE_RE_PIN, GPIO.HIGH)
-
-                instr.read_register(0, 1)
-                rs485_ok = True
-
-                if GPIO_AVAILABLE:
-                    GPIO.output(DE_RE_PIN, GPIO.LOW)
-
-                sensors.append(
-                    _sensor(
-                        "RS485 anemometer (MAX485)",
-                        "wind_speed",
-                        "ok",
-                        f"{_settings['rs485_port']} addr {_settings['modbus_address']} — {gpio_detail}",
-                    )
-                )
-            except Exception as exc:
-                if GPIO_AVAILABLE:
-                    try:
-                        GPIO.output(DE_RE_PIN, GPIO.LOW)
-                    except Exception:
-                        pass
-                sensors.append(
-                    _sensor(
-                        "RS485 anemometer (MAX485)",
-                        "wind_speed",
-                        "missing",
-                        f"{exc} — {gpio_detail}",
-                    )
-                )
-
-            adc_detail = "ADS1115 channel available" if adc_ok else "Waiting for ADS1115"
-            state = "ok" if adc_ok else "missing"
-            sensors.extend(
-                [
-                    _sensor("Turbine ACS712 30A", "turbine_current", state, "ADS1115 A0 - " + adc_detail),
-                    _sensor("Solar ACS712 30A", "solar_current", state, "ADS1115 A1 - " + adc_detail),
-                    _sensor("Turbine voltage divider", "turbine_voltage", state, "ADS1115 A2 - " + adc_detail),
-                    _sensor("Battery voltage monitor", "battery_voltage", state, "ADS1115 A3 - " + adc_detail),
-                    _sensor(
-                        "Solar voltage divider",
-                        "solar_voltage",
-                        "missing",
-                        "Needs a dedicated ADC channel or second ADS1115",
-                    ),
-                ]
-            )
-
-        # Report GPIO/MAX485 status as its own sensor entry
-        sensors.append(
-            _sensor(
-                "MAX485 DE/RE control",
-                "rs485_direction",
-                "ok" if GPIO_AVAILABLE else "missing",
-                f"GPIO{DE_RE_PIN} — RPi.GPIO {'available' if GPIO_AVAILABLE else 'not available'}",
-                required=False,
-            )
-        )
+        adc_detail = "ADS1115 channel available" if adc_ok else "Waiting for ADS1115"
+        state = "ok" if adc_ok else "missing"
+        sensors.extend([
+            _sensor("Solar ACS712 30A", "solar_current", state, "ADS1115 A0 - " + adc_detail),
+            _sensor("Turbine ACS712 30A", "turbine_current", "missing", "ADS1115 A1 is empty during solar current testing", required=False),
+            _sensor("Turbine voltage divider", "turbine_voltage", state, "ADS1115 A2 - " + adc_detail),
+            _sensor("Battery voltage monitor", "battery_voltage", state, "ADS1115 A3 - " + adc_detail),
+            _sensor("Solar voltage divider", "solar_voltage", "missing", "Needs a dedicated ADC channel or second ADS1115", required=False),
+        ])
 
     status = {
         "app": "AeroGen",
-        "mode": mode,
+        "mode": active_mode(),
         "requested_mode": _env_mode(),
         "hardware_imports_ok": HARDWARE_IMPORTS_OK,
-        "gpio_available": GPIO_AVAILABLE,
         "sensors": sensors,
         "system": system_stats(),
         "supabase": supabase_status(),
@@ -264,100 +134,93 @@ def probe_status(force=False):
 
 
 def read_sensors():
-    if active_mode() == "simulation":
-        return simulate_reading()
     try:
         return read_hardware()
     except Exception as exc:
         app.logger.error("Hardware read failed: %s", exc)
-        data = simulate_reading()
-        data["mode"] = "simulation_fallback"
-        return data
+        return empty_reading("hardware_error")
 
 
 def read_hardware():
+    if not HARDWARE_IMPORTS_OK:
+        return empty_reading("hardware_missing")
+
     i2c = busio.I2C(board.SCL, board.SDA)
     ads = ADS.ADS1115(i2c)
     ads.gain = 1
 
     ch0 = AnalogIn(ads, 0)
-    ch1 = AnalogIn(ads, 1)
     ch2 = AnalogIn(ads, 2)
     ch3 = AnalogIn(ads, 3)
 
     sensitivity = float(_settings["acs_sensitivity_mv"]) / 1000.0
     vref = float(_settings["acs_vref"])
 
-    turbine_i = (ch0.voltage - vref) / sensitivity
-    solar_i = (ch1.voltage - vref) / sensitivity
+    solar_i = (ch0.voltage - vref) / sensitivity
+    turbine_i = None
     turbine_v = ch2.voltage * float(_settings["turbine_voltage_ratio"])
     battery_v = ch3.voltage * float(_settings["battery_voltage_ratio"])
-    solar_v = 0.0
-    wind_mps = read_anemometer_rs485()
+    solar_v = None
 
-    return package_reading(wind_mps, turbine_v, turbine_i, solar_v, solar_i, battery_v, "hardware")
-
-
-def read_anemometer_rs485():
-    """
-    Read wind speed from GD-FS-RS485 anemometer via MAX485 module.
-    Toggles GPIO DE/RE pin HIGH (TX) before sending Modbus request,
-    then LOW (RX) after to receive the response.
-    """
-    import minimalmodbus
-
-    instr = minimalmodbus.Instrument(
-        _settings["rs485_port"], int(_settings["modbus_address"])
-    )
-    instr.serial.baudrate = 9600
-    instr.serial.timeout = 0.5
-
-    try:
-        if GPIO_AVAILABLE:
-            GPIO.output(DE_RE_PIN, GPIO.HIGH)   # enable transmit
-            time.sleep(0.001)                   # brief settle time
-
-        value = instr.read_register(0, 1)       # register 0, 1 decimal place
-
-        return float(value)
-
-    finally:
-        if GPIO_AVAILABLE:
-            GPIO.output(DE_RE_PIN, GPIO.LOW)    # back to receive mode
+    return package_reading(turbine_v, turbine_i, solar_v, solar_i, battery_v, "hardware")
 
 
-def simulate_reading():
-    global _sim_t
-    _sim_t += 0.1
-    wind = max(0, 4 + 3 * math.sin(_sim_t * 0.3) + random.uniform(-0.5, 0.5))
-    turbine_v = max(0, 13.5 + 1.5 * math.sin(_sim_t * 0.25) + random.uniform(-0.1, 0.1))
-    turbine_i = max(0, 2.5 + 1.0 * math.sin(_sim_t * 0.28) + random.uniform(-0.05, 0.05))
-    solar_v = max(0, 18.0 + 2.0 * math.sin(_sim_t * 0.15) + random.uniform(-0.2, 0.2))
-    solar_i = max(0, 3.0 + 1.0 * math.sin(_sim_t * 0.18) + random.uniform(-0.05, 0.05))
-    battery_v = 12.6 + 0.5 * math.sin(_sim_t * 0.05)
-    return package_reading(wind, turbine_v, turbine_i, solar_v, solar_i, battery_v, "simulation")
+def clean_current(value):
+    if value is None or abs(float(value)) < 0.05:
+        return None
+    return float(value)
 
 
-def package_reading(wind, turbine_v, turbine_i, solar_v, solar_i, battery_v, mode):
-    turbine_p = max(0.0, turbine_v * turbine_i)
-    solar_p = max(0.0, solar_v * solar_i)
+def clean_voltage(value):
+    if value is None or float(value) <= 0.05:
+        return None
+    return float(value)
+
+
+def round_or_none(value, digits):
+    return None if value is None else round(value, digits)
+
+
+def calc_power(voltage, current):
+    if voltage is None or current is None:
+        return None
+    return max(0.0, voltage * current)
+
+
+def empty_reading(mode):
+    return package_reading(None, None, None, None, None, mode)
+
+
+def package_reading(turbine_v, turbine_i, solar_v, solar_i, battery_v, mode):
+    turbine_v = clean_voltage(turbine_v)
+    solar_v = clean_voltage(solar_v)
+    battery_v = clean_voltage(battery_v)
+    turbine_i = clean_current(turbine_i)
+    solar_i = clean_current(solar_i)
+
+    turbine_p = calc_power(turbine_v, turbine_i)
+    solar_p = calc_power(solar_v, solar_i)
+    valid_powers = [p for p in (turbine_p, solar_p) if p is not None]
+    total_power = sum(valid_powers) if valid_powers else None
+
     full = float(_settings["battery_full_v"])
     empty = float(_settings["battery_empty_v"])
-    battery_soc = 0.0 if full <= empty else (battery_v - empty) / (full - empty) * 100
+    battery_soc = None
+    if battery_v is not None and full > empty:
+        battery_soc = max(0.0, min(100.0, (battery_v - empty) / (full - empty) * 100))
+
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "mode": mode,
-        "wind_mps": round(wind, 2),
-        "wind_kmh": round(wind * 3.6, 2),
-        "turbine_voltage": round(turbine_v, 3),
-        "turbine_current": round(turbine_i, 3),
-        "turbine_power": round(turbine_p, 2),
-        "solar_voltage": round(solar_v, 3),
-        "solar_current": round(solar_i, 3),
-        "solar_power": round(solar_p, 2),
-        "total_power": round(turbine_p + solar_p, 2),
-        "battery_voltage": round(battery_v, 3),
-        "battery_soc": round(max(0.0, min(100.0, battery_soc)), 1),
+        "turbine_voltage": round_or_none(turbine_v, 3),
+        "turbine_current": round_or_none(turbine_i, 3),
+        "turbine_power": round_or_none(turbine_p, 2),
+        "solar_voltage": round_or_none(solar_v, 3),
+        "solar_current": round_or_none(solar_i, 3),
+        "solar_power": round_or_none(solar_p, 2),
+        "total_power": round_or_none(total_power, 2),
+        "battery_voltage": round_or_none(battery_v, 3),
+        "battery_soc": round_or_none(battery_soc, 1),
         "system": system_stats(),
     }
 
@@ -486,24 +349,26 @@ def parse_timestamp(value):
         return None
 
 
-def summarize_rows(rows):
-    keys = ("wind_mps", "turbine_power", "solar_power", "battery_soc")
-    totals = {key: 0.0 for key in keys}
-    count = 0
+def avg_metric(rows, key):
+    values = []
     for row in rows:
+        value = row.get(key)
+        if value is None:
+            continue
         try:
-            for key in keys:
-                totals[key] += float(row.get(key) or 0)
-            count += 1
+            values.append(float(value))
         except (TypeError, ValueError):
             continue
+    return round(sum(values) / len(values), 2) if values else None
+
+
+def summarize_rows(rows):
     return {
         "date": datetime.now().astimezone().date().isoformat(),
-        "count": count,
-        "avg_wind_mps": round(totals["wind_mps"] / count, 2) if count else None,
-        "avg_turbine_power": round(totals["turbine_power"] / count, 2) if count else None,
-        "avg_solar_power": round(totals["solar_power"] / count, 2) if count else None,
-        "avg_battery_soc": round(totals["battery_soc"] / count, 2) if count else None,
+        "count": len(rows),
+        "avg_turbine_power": avg_metric(rows, "turbine_power"),
+        "avg_solar_power": avg_metric(rows, "solar_power"),
+        "avg_battery_soc": avg_metric(rows, "battery_soc"),
     }
 
 
@@ -513,7 +378,7 @@ def fetch_daily_summary():
         try:
             result = (
                 _sb.table("aerogen_logs")
-                .select("timestamp,wind_mps,turbine_power,solar_power,battery_soc")
+                .select("timestamp,turbine_power,solar_power,battery_soc")
                 .gte("timestamp", start.isoformat())
                 .lt("timestamp", end.isoformat())
                 .execute()
@@ -543,14 +408,9 @@ def get_reading(force=False):
     return _last_read["data"]
 
 
-# ── Startup ───────────────────────────────────────────────────────────────────
 load_saved_settings()
 
-if active_mode() == "hardware":
-    init_gpio()
 
-
-# ── Routes ────────────────────────────────────────────────────────────────────
 @app.route("/")
 def dashboard():
     return render_template("dashboard.html")
@@ -602,3 +462,4 @@ def health():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+

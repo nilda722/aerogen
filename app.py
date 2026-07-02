@@ -113,11 +113,11 @@ def probe_status(force=False):
         adc_detail = "ADS1115 channel available" if adc_ok else "Waiting for ADS1115"
         state = "ok" if adc_ok else "missing"
         sensors.extend([
-            _sensor("Solar ACS712 30A", "solar_current", state, "ADS1115 A1 - " + adc_detail),
+            _sensor("Solar ACS712 30A", "solar_current", state, "ADS1115 A0 - " + adc_detail),
             _sensor("Turbine ACS712 30A", "turbine_current", "missing", "No ADS1115 channel connected during solar testing", required=False),
-            _sensor("Turbine voltage divider", "turbine_voltage", state, "ADS1115 A2 - " + adc_detail),
-            _sensor("Battery voltage monitor", "battery_voltage", "missing", "No ADS1115 channel connected during solar testing", required=False),
-            _sensor("Solar voltage divider", "solar_voltage", state, "ADS1115 A3 - " + adc_detail),
+            _sensor("Turbine voltage divider", "turbine_voltage", "missing", "No ADS1115 channel connected yet", required=False),
+            _sensor("Battery voltage monitor", "battery_voltage", state, "ADS1115 A2 - " + adc_detail),
+            _sensor("Solar voltage divider", "solar_voltage", "missing", "No ADS1115 channel connected yet", required=False),
         ])
 
     status = {
@@ -149,18 +149,17 @@ def read_hardware():
     ads = ADS.ADS1115(i2c)
     ads.gain = 1
 
-    ch1 = AnalogIn(ads, 1)
+    ch0 = AnalogIn(ads, 0)
     ch2 = AnalogIn(ads, 2)
-    ch3 = AnalogIn(ads, 3)
 
     sensitivity = float(_settings["acs_sensitivity_mv"]) / 1000.0
     vref = float(_settings["acs_vref"])
 
-    solar_i = (ch1.voltage - vref) / sensitivity
+    solar_i = (ch0.voltage - vref) / sensitivity
     turbine_i = None
-    turbine_v = ch2.voltage * float(_settings["turbine_voltage_ratio"])
-    solar_v = ch3.voltage * float(_settings["solar_voltage_ratio"])
-    battery_v = None
+    turbine_v = None
+    solar_v = None
+    battery_v = ch2.voltage * float(_settings["battery_voltage_ratio"])
 
     return package_reading(turbine_v, turbine_i, solar_v, solar_i, battery_v, "hardware")
 
@@ -462,5 +461,6 @@ def health():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
 
 

@@ -98,24 +98,38 @@ def probe_status(force=False):
     if not HARDWARE_IMPORTS_OK:
         sensors.append(_sensor("Raspberry Pi hardware libraries", "hardware_imports", "missing", HARDWARE_IMPORT_ERROR))
     else:
-        try:
-            i2c = busio.I2C(board.SCL, board.SDA)
-            ads = ADS.ADS1115(i2c)
-            ads.gain = 1
-            AnalogIn(ads, 0).voltage
-            adc_ok = True
-            sensors.append(_sensor("ADS1115 ADC", "adc", "ok", "I2C ADC detected"))
-        except Exception as exc:
-            sensors.append(_sensor("ADS1115 ADC", "adc", "missing", str(exc)))
+        i2c = busio.I2C(board.SCL, board.SDA)
+        ads1_ok = False
+        ads2_ok = False
 
-        adc_detail = "ADS1115 channel available" if adc_ok else "Waiting for ADS1115"
-        state = "ok" if adc_ok else "missing"
+        try:
+            ads1 = ADS.ADS1115(i2c, address=0x48)
+            ads1.gain = 1
+            AnalogIn(ads1, 0).voltage
+            ads1_ok = True
+            sensors.append(_sensor("ADS1115 #1", "adc_0x48", "ok", "I2C address 0x48 detected"))
+        except Exception as exc:
+            sensors.append(_sensor("ADS1115 #1", "adc_0x48", "missing", str(exc)))
+
+        try:
+            ads2 = ADS.ADS1115(i2c, address=0x49)
+            ads2.gain = 1
+            AnalogIn(ads2, 0).voltage
+            ads2_ok = True
+            sensors.append(_sensor("ADS1115 #2", "adc_0x49", "ok", "I2C address 0x49 detected"))
+        except Exception as exc:
+            sensors.append(_sensor("ADS1115 #2", "adc_0x49", "missing", str(exc)))
+
+        ads1_detail = "ADS1115 #1 channel available" if ads1_ok else "Waiting for ADS1115 #1 at 0x48"
+        ads2_detail = "ADS1115 #2 channel available" if ads2_ok else "Waiting for ADS1115 #2 at 0x49"
+        ads1_state = "ok" if ads1_ok else "missing"
+        ads2_state = "ok" if ads2_ok else "missing"
         sensors.extend([
-            _sensor("Solar ACS712 30A", "solar_current", state, "ADS1115 A0 - " + adc_detail),
-            _sensor("Turbine ACS712 30A", "turbine_current", "missing", "No ADS1115 channel connected during solar testing", required=False),
-            _sensor("Turbine voltage divider", "turbine_voltage", "missing", "No ADS1115 channel connected yet", required=False),
-            _sensor("Battery voltage monitor", "battery_voltage", state, "ADS1115 A2 - " + adc_detail),
-            _sensor("Solar voltage divider", "solar_voltage", "missing", "No ADS1115 channel connected yet", required=False),
+            _sensor("Solar ACS712 30A", "solar_current", ads1_state, "ADS1115 #1 A0 - " + ads1_detail),
+            _sensor("Battery voltage monitor", "battery_voltage", ads1_state, "ADS1115 #1 A2 - " + ads1_detail),
+            _sensor("Solar voltage divider", "solar_voltage", ads2_state, "ADS1115 #2 A0 - " + ads2_detail),
+            _sensor("Turbine ACS712 30A", "turbine_current", ads2_state, "ADS1115 #2 A1 - " + ads2_detail),
+            _sensor("Turbine voltage divider", "turbine_voltage", ads2_state, "ADS1115 #2 A2 - " + ads2_detail),
         ])
 
     status = {
@@ -144,20 +158,25 @@ def read_hardware():
         return empty_reading("hardware_missing")
 
     i2c = busio.I2C(board.SCL, board.SDA)
-    ads = ADS.ADS1115(i2c)
-    ads.gain = 1
+    ads1 = ADS.ADS1115(i2c, address=0x48)
+    ads2 = ADS.ADS1115(i2c, address=0x49)
+    ads1.gain = 1
+    ads2.gain = 1
 
-    ch0 = AnalogIn(ads, 0)
-    ch2 = AnalogIn(ads, 2)
+    solar_current_ch = AnalogIn(ads1, 0)
+    battery_voltage_ch = AnalogIn(ads1, 2)
+    solar_voltage_ch = AnalogIn(ads2, 0)
+    turbine_current_ch = AnalogIn(ads2, 1)
+    turbine_voltage_ch = AnalogIn(ads2, 2)
 
     sensitivity = float(_settings["acs_sensitivity_mv"]) / 1000.0
     vref = float(_settings["acs_vref"])
 
-    solar_i = (ch0.voltage - vref) / sensitivity
-    turbine_i = None
-    turbine_v = None
-    solar_v = None
-    battery_v = ch2.voltage * float(_settings["battery_voltage_ratio"])
+    solar_i = (solar_current_ch.voltage - vref) / sensitivity
+    battery_v = battery_voltage_ch.voltage * float(_settings["battery_voltage_ratio"])
+    solar_v = solar_voltage_ch.voltage * float(_settings["solar_voltage_ratio"])
+    turbine_i = (turbine_current_ch.voltage - vref) / sensitivity
+    turbine_v = turbine_voltage_ch.voltage * float(_settings["turbine_voltage_ratio"])
 
     return package_reading(turbine_v, turbine_i, solar_v, solar_i, battery_v, "hardware")
 
@@ -490,6 +509,7 @@ def health():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
 
 
 

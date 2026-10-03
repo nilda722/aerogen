@@ -4,6 +4,7 @@ Flask>=3.0
 # supabase>=2.0
 
 # Install these on the Pi:
-# adafruit-circuitpython-ads1x15
-# adafruit-blinka
-# minimalmodbus
+adafruit-circuitpython-ads1x15
+adafruit-blinka
+minimalmodbus
+RPi.GPI

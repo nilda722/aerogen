@@ -52,7 +52,7 @@ _settings = {
     "battery_voltage_ratio": 6.0,
 }
 
-RELAY_PIN = 11
+RELAY_PIN = 17
 
 # Battery voltage thresholds
 RELAY_ON_VOLTAGE = 14.5
@@ -60,6 +60,7 @@ RELAY_OFF_VOLTAGE = 14.2
 
 #remove after
 RELAY_TEST_MODE = True
+
 
 RELAY_TEST_VOLTAGES = [
     13.8,
@@ -73,9 +74,10 @@ RELAY_TEST_VOLTAGES = [
     14.0
 ]
 
+RELAY_TEST_INTERVAL = 2.0
 
 # Set up GPIO
-GPIO.setmode(GPIO.BOARD)
+GPIO.setmode(GPIO.BCM)
 GPIO.setup(RELAY_PIN, GPIO.OUT, initial=GPIO.LOW)
 
 # Relay starts OFF

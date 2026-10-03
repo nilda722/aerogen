@@ -3,6 +3,7 @@ import os
 import platform
 import shutil
 import time
+import RPi.GPIO as GPIO
 from datetime import datetime, timedelta, timezone
 
 from flask import Flask, jsonify, render_template, request
@@ -50,6 +51,36 @@ _settings = {
     "solar_voltage_ratio": 6.0,
     "battery_voltage_ratio": 6.0,
 }
+
+RELAY_PIN = 11
+
+# Battery voltage thresholds
+RELAY_ON_VOLTAGE = 14.5
+RELAY_OFF_VOLTAGE = 14.2
+
+#remove after
+RELAY_TEST_MODE = True
+
+RELAY_TEST_VOLTAGES = [
+    13.8,
+    14.1,
+    14.4,
+    14.5,
+    14.6,
+    14.4,
+    14.3,
+    14.2,
+    14.0
+]
+
+
+# Set up GPIO
+GPIO.setmode(GPIO.BOARD)
+GPIO.setup(RELAY_PIN, GPIO.OUT, initial=GPIO.LOW)
+
+# Relay starts OFF
+relay_state = False
+
 SETTINGS_FILE = os.environ.get("AEROGEN_SETTINGS_FILE", os.path.join(os.getcwd(), "aerogen_settings.json"))
 
 _last_probe = {"time": 0.0, "status": None}
@@ -152,6 +183,29 @@ def read_sensors():
         app.logger.error("Hardware read failed: %s", exc)
         return empty_reading("hardware_error")
 
+def update_relay(battery_voltage):
+    global relay_state
+
+    if battery_voltage is None:
+        return
+
+    # Turn relay ON when battery reaches 14.5 V
+    if not relay_state and battery_voltage >= RELAY_ON_VOLTAGE:
+        GPIO.output(RELAY_PIN, GPIO.HIGH)
+        relay_state = True
+        app.logger.info(
+            "Relay ON: battery voltage reached %.3f V",
+            battery_voltage
+        )
+
+    # Turn relay OFF only after battery falls to 14.2 V
+    elif relay_state and battery_voltage <= RELAY_OFF_VOLTAGE:
+        GPIO.output(RELAY_PIN, GPIO.LOW)
+        relay_state = False
+        app.logger.info(
+            "Relay OFF: battery voltage dropped to %.3f V",
+            battery_voltage
+        )
 
 def read_hardware():
     if not HARDWARE_IMPORTS_OK:
@@ -172,13 +226,44 @@ def read_hardware():
     sensitivity = float(_settings["acs_sensitivity_mv"]) / 1000.0
     vref = float(_settings["acs_vref"])
 
-    solar_i = (solar_current_ch.voltage - vref) / sensitivity
     battery_v = battery_voltage_ch.voltage * float(_settings["battery_voltage_ratio"])
+    solar_i = (solar_current_ch.voltage - vref) / sensitivity
     solar_v = solar_voltage_ch.voltage * float(_settings["solar_voltage_ratio"])
     turbine_i = (turbine_current_ch.voltage - vref) / sensitivity
     turbine_v = turbine_voltage_ch.voltage * float(_settings["turbine_voltage_ratio"])
 
+# Control dump-load relay from BATTERY voltage
+    update_relay(battery_v)
+
     return package_reading(turbine_v, turbine_i, solar_v, solar_i, battery_v, "hardware")
+
+#remove after testing
+def run_relay_test():
+    """
+    Test the relay using fake battery voltages.
+
+    This does NOT use the ADS1115 battery voltage.
+    It directly feeds simulated voltages into update_relay().
+    """
+
+    app.logger.info("========================================")
+    app.logger.info("RELAY TEST MODE ENABLED")
+    app.logger.info("Using simulated battery voltages")
+    app.logger.info("========================================")
+
+    for test_voltage in RELAY_TEST_VOLTAGES:
+        app.logger.info(
+            "Relay test voltage: %.2f V",
+            test_voltage
+        )
+
+        update_relay(test_voltage)
+
+        time.sleep(RELAY_TEST_INTERVAL)
+
+    app.logger.info("========================================")
+    app.logger.info("RELAY TEST COMPLETE")
+    app.logger.info("========================================")
 
 
 def clean_current(value):
@@ -208,18 +293,12 @@ def empty_reading(mode):
 
 
 BATTERY_SOC_TABLE = [
-    (13.00, 100.0),
-    (12.80, 100.0),
-    (12.65, 90.0),
-    (12.50, 80.0),
-    (12.35, 70.0),
-    (12.20, 60.0),
-    (12.05, 50.0),
-    (11.90, 40.0),
-    (11.75, 30.0),
-    (11.58, 20.0),
-    (11.30, 10.0),
-    (10.50, 0.0),
+    (14.60, 100.0),
+    (12.95, 80.0),
+    (12.84, 60.0),
+    (12.77, 40.0),
+    (12.55, 20.0),
+    (10.00, 0.0),
 ]
 
 
@@ -508,8 +587,18 @@ def health():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
-
+    try:
+        if RELAY_TEST_MODE:
+            run_relay_test()
+        else:
+            app.run(
+                host="0.0.0.0",
+                port=5000,
+                debug=False
+            )
+    finally:
+        GPIO.output(RELAY_PIN, GPIO.LOW)
+        GPIO.cleanup()
 
 
 
